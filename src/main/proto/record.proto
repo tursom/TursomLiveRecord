@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+option optimize_for = SPEED;
+import "danmu.proto";
+
+package cn.tursom.record;
+option java_outer_classname = "Record";
+
+message RecordMsg {
+  oneof content {
+    DanmuRecord danmu      = 1;
+    LiveStatus  liveStatus = 2;
+
+  }
+}
+
+message DanmuRecord {
+  int32                     roomId     = 1;
+  cn.tursom.danmu.DanmuInfo danmu      = 2;
+  UnknownCmd                unknownCmd = 3;
+}
+
+message LiveStatus {
+  int32 roomId = 1;
+  enum LiveStatus {
+    NONE      = 0;
+    LIVE      = 1;
+    PREPARING = 2;
+  }
+}
+
+message UnknownCmd {
+  string cmd        = 1;
+  string originData = 2;
+}
