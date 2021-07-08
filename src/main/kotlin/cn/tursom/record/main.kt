@@ -28,20 +28,19 @@ suspend fun main() {
 
   val danmuChannel = Channel<Record.RecordMsg>(128)
 
-  val os = File("danmu.rec").outputStream()
-  val roomId = 4767523
-  val biliWSClient = BiliWSClient(roomId)
+  val biliWSClient = BiliWSClient(4767523)
   biliWSClient.addDanmuListener {
     runBlocking {
       danmuChannel.send(Record.RecordMsg.newBuilder()
         .setDanmu(Record.DanmuRecord.newBuilder()
-          .setRoomId(roomId)
+          .setRoomId(biliWSClient.roomId)
           .setDanmu(it.toProtobuf()))
         .build())
     }
   }
 
   GlobalScope.launch {
+    val os = File("danmu.rec").outputStream()
     while (true) {
       val danmuInfo = danmuChannel.receive()
       val bytes = danmuInfo.toByteArray()
