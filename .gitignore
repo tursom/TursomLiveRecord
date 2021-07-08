@@ -4,5 +4,5 @@ gradle
 gradlew
 gradlew.bat
 gradle.properties
-src/main/java/cn/tursom/record/protobuf
+src/main/java/cn/tursom/record
 build

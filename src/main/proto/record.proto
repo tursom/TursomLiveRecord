@@ -21,12 +21,14 @@ message DanmuRecord {
 }
 
 message LiveStatus {
-  int32 roomId = 1;
-  enum LiveStatus {
+  enum LiveStatusEnum {
     NONE      = 0;
     LIVE      = 1;
     PREPARING = 2;
   }
+
+  int32          roomId = 1;
+  LiveStatusEnum status = 2;
 }
 
 message UnknownCmd {

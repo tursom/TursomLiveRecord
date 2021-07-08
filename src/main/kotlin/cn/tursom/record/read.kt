@@ -17,7 +17,7 @@ fun main() {
     val size = sizeBuf.toInt(0, ByteOrder.BIG_ENDIAN)
     val buf = ByteArray(size)
     inputStream.read(buf)
-    val message = Danmu.DanmuInfo.parseFrom(buf)
+    val message = Record.RecordMsg.parseFrom(buf)
     println(message)
     count++
     println(count)

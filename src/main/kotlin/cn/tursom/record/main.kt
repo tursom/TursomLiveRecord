@@ -2,7 +2,6 @@ package cn.tursom.record
 
 import cn.tursom.core.final
 import cn.tursom.core.toByteArray
-import cn.tursom.danmu.Danmu
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.ws.BiliWSClient
 import com.google.protobuf.TextFormat
@@ -27,13 +26,18 @@ fun setDefaultTextFormatPrinter(printer: TextFormat.Printer) {
 suspend fun main() {
   setDefaultTextFormatPrinter(TextFormat.printer().escapingNonAscii(false))
 
-  val danmuChannel = Channel<Danmu.DanmuInfo>(128)
+  val danmuChannel = Channel<Record.RecordMsg>(128)
 
   val os = File("danmu.rec").outputStream()
-  val biliWSClient = BiliWSClient(22340341)
+  val roomId = 4767523
+  val biliWSClient = BiliWSClient(roomId)
   biliWSClient.addDanmuListener {
     runBlocking {
-      danmuChannel.send(it.toProtobuf())
+      danmuChannel.send(Record.RecordMsg.newBuilder()
+        .setDanmu(Record.DanmuRecord.newBuilder()
+          .setRoomId(roomId)
+          .setDanmu(it.toProtobuf()))
+        .build())
     }
   }
 
