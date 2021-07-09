@@ -1,10 +1,12 @@
 package cn.tursom.record
 
+import cn.tursom.core.ShutdownHook
 import cn.tursom.core.final
 import cn.tursom.core.toByteArray
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.ws.BiliWSClient
 import com.google.protobuf.TextFormat
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
@@ -22,13 +24,28 @@ fun setDefaultTextFormatPrinter(printer: TextFormat.Printer) {
 }
 
 @Suppress("BlockingMethodInNonBlockingContext")
-@OptIn(ExperimentalUnsignedTypes::class)
+@OptIn(ExperimentalUnsignedTypes::class, DelicateCoroutinesApi::class)
 suspend fun main() {
   setDefaultTextFormatPrinter(TextFormat.printer().escapingNonAscii(false))
 
   val danmuChannel = Channel<Record.RecordMsg>(128)
+  GlobalScope.launch {
+    val os = File("danmu.rec").outputStream().buffered()
+    ShutdownHook.addHook {
+      os.flush()
+      os.close()
+    }
 
-  val biliWSClient = BiliWSClient(4767523)
+    while (true) {
+      val danmuInfo = danmuChannel.receive()
+      val bytes = danmuInfo.toByteArray()
+      os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
+      os.write(bytes)
+      os.flush()
+    }
+  }
+
+  val biliWSClient = BiliWSClient(22340341)
   biliWSClient.addDanmuListener {
     runBlocking {
       danmuChannel.send(Record.RecordMsg.newBuilder()
@@ -39,15 +56,16 @@ suspend fun main() {
     }
   }
 
-  GlobalScope.launch {
-    val os = File("danmu.rec").outputStream()
-    while (true) {
-      val danmuInfo = danmuChannel.receive()
-      val bytes = danmuInfo.toByteArray()
-      os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
-      os.write(bytes)
+  biliWSClient.addLivingListener {
+    runBlocking {
+      danmuChannel.send(Record.RecordMsg.newBuilder()
+        .setLiveStatus(Record.LiveStatus.newBuilder()
+          .setRoomId(biliWSClient.roomId)
+          .setStatus(Record.LiveStatus.LiveStatusEnum.LIVE))
+        .build())
     }
   }
+
 
   biliWSClient.connect()
 }
