@@ -15,6 +15,7 @@ repositories {
 
 dependencies {
   implementation(kotlin("stdlib"))
+  implementation(group = "cn.tursom", name = "ts-pool", version = "0.2")
   implementation(group = "cn.tursom", name = "tursom-im-sdk", version = "1.0")
   implementation(group = "cn.tursom", name = "BiliWS", version = "1.0")
 }
