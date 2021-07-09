@@ -8,6 +8,7 @@ import cn.tursom.utils.AsyncHttpRequest
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
+import java.io.InputStream
 import kotlin.coroutines.EmptyCoroutineContext
 
 class BilibiliLiveProvider(
@@ -20,13 +21,20 @@ class BilibiliLiveProvider(
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
   private val bufferPool = HeapMemoryPool(128 * 1024)
   private var closed = false
+  private var inputStream: InputStream? = null
 
   override suspend fun getData(): ByteBuffer {
     return dataChannel.receive()
   }
 
+  @OptIn(ExperimentalCoroutinesApi::class)
   override suspend fun finish() {
     closed = true
+    try {
+      @Suppress("BlockingMethodInNonBlockingContext")
+      inputStream?.close()
+    } catch (e: Exception) {
+    }
     try {
       (dataChannel as SendChannel<*>).close()
     } catch (e: Exception) {
@@ -41,10 +49,14 @@ class BilibiliLiveProvider(
     val liveJson = getLiveJson(roomId, "-1")
     val url = liveJson.data.durl[0].url
     val response = AsyncHttpRequest.get(url)
+    val inputStream = response.body()!!.byteStream()
+    this.inputStream = inputStream
+    var buffer = bufferPool.get()
+    while (buffer.writeable != 0) {
+      buffer.put(inputStream)
+    }
 
     coroutineScope.launch(Dispatchers.IO) {
-      val inputStream = response.body()!!.byteStream()
-      var buffer = bufferPool.get()
       try {
         while (!closed) {
           println(buffer.javaClass)

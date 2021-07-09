@@ -3,10 +3,11 @@ import com.google.protobuf.gradle.*
 plugins {
   kotlin("jvm") version "1.5.20"
   id("com.google.protobuf") version "0.8.16"
+  application
 }
 
 group = "cn.tursom"
-version = "1.0-SNAPSHOT"
+version = "1.0"
 
 repositories {
   mavenLocal()
@@ -45,4 +46,14 @@ protobuf {
       }
     }
   }
+}
+
+application {
+  mainClass.set("cn.tursom.record.LiveKt")
+  //mainClassName = "cn.tursom.record.LiveKt"
+  applicationDefaultJvmArgs = listOf(
+    "-Xmx32m",
+    "-XX:MaxHeapFreeRatio=10",
+    "-XX:MinHeapFreeRatio=10"
+  )
 }

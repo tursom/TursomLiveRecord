@@ -2,12 +2,10 @@ package cn.tursom.record.saver
 
 import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.log.impl.Slf4jImpl
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -26,18 +24,21 @@ class FileLiveSaver(
 
   init {
     coroutineScope.launch(Dispatchers.IO) {
-      while (true) {
-        val buffer = bufferChannel.receive()
-        while (buffer.readable != 0) {
-          savedSize += buffer.writeTo(os)
-        }
-        buffer.close()
-        logger.debug("file {} save buffer", path)
+      try {
+        while (true) {
+          val buffer = bufferChannel.receive()
+          while (buffer.readable != 0) {
+            savedSize += buffer.writeTo(os)
+          }
+          buffer.close()
+          logger.debug("file {} save buffer", path)
 
-        if (savedSize >= maxSize) {
-          finish()
-          onException(Exception("file write finished"))
+          if (savedSize >= maxSize) {
+            finish()
+            onException(Exception("file write finished"))
+          }
         }
+      } catch (e: ClosedReceiveChannelException) {
       }
     }
   }
@@ -46,17 +47,19 @@ class FileLiveSaver(
     bufferChannel.send(buffer)
   }
 
+  @OptIn(ExperimentalCoroutinesApi::class)
   override suspend fun finish() {
     try {
-      (bufferChannel as ReceiveChannel<*>).cancel()
+      if (!(bufferChannel.isClosedForReceive || bufferChannel.isClosedForSend)) {
+        (bufferChannel as ReceiveChannel<*>).cancel()
+      }
     } catch (e: Exception) {
     }
-    coroutineScope.launch(Dispatchers.IO) {
-      os.close()
-      try {
-        coroutineScope.cancel()
-      } catch (e: Exception) {
-      }
+    @Suppress("BlockingMethodInNonBlockingContext")
+    os.close()
+    try {
+      coroutineScope.cancel()
+    } catch (e: Exception) {
     }
   }
 }

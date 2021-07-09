@@ -7,7 +7,7 @@ import com.google.protobuf.TextFormat
 import java.io.File
 import java.nio.ByteOrder
 
-val dateFormat = ThreadLocalSimpleDateFormat.cn
+private val dateFormat = ThreadLocalSimpleDateFormat.cn
 
 fun printDanmu(danmuRecord: Record.DanmuRecord) {
   println(TextColor.run {
