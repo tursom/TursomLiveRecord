@@ -17,6 +17,7 @@ repositories {
 dependencies {
   implementation(kotlin("stdlib"))
   implementation(group = "cn.tursom", name = "ts-pool", version = "0.2")
+  implementation(group = "cn.tursom", name = "ts-coroutine", version = "0.2")
   implementation(group = "cn.tursom", name = "tursom-im-sdk", version = "1.0")
   implementation(group = "cn.tursom", name = "BiliWS", version = "1.0")
 }
@@ -50,7 +51,7 @@ protobuf {
 
 application {
   mainClass.set("cn.tursom.record.LiveKt")
-  //mainClassName = "cn.tursom.record.LiveKt"
+  //mainClass.set("cn.tursom.record.MainKt")
   applicationDefaultJvmArgs = listOf(
     "-Xmx32m",
     "-XX:MaxHeapFreeRatio=10",

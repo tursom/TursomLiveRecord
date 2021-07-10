@@ -11,7 +11,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 
 class FileLiveSaver(
   private val path: String,
-  private val bufferChannel: Channel<ByteBuffer> = Channel(128),
+  private val bufferChannel: Channel<ByteBuffer> = Channel(32),
   private val maxSize: Long = Long.MAX_VALUE,
   var onException: suspend (e: Exception) -> Unit = {},
 ) : LiveSaver {
@@ -35,7 +35,10 @@ class FileLiveSaver(
 
           if (savedSize >= maxSize) {
             finish()
-            onException(Exception("file write finished"))
+            @OptIn(DelicateCoroutinesApi::class)
+            GlobalScope.launch(Dispatchers.IO) {
+              onException(Exception("file write finished"))
+            }
           }
         }
       } catch (e: ClosedReceiveChannelException) {
@@ -55,8 +58,11 @@ class FileLiveSaver(
       }
     } catch (e: Exception) {
     }
-    @Suppress("BlockingMethodInNonBlockingContext")
-    os.close()
+    try {
+      @Suppress("BlockingMethodInNonBlockingContext")
+      os.close()
+    } catch (e: Exception) {
+    }
     try {
       coroutineScope.cancel()
     } catch (e: Exception) {
