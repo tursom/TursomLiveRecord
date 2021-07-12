@@ -16,6 +16,7 @@ class FfmpegLiveSaver(
   private val prevSaver: LiveSaver,
   fileType: String = "flv",
   private val dataChannel: Channel<ByteBuffer> = Channel(32),
+  val ffmpegDecoderArgs: Array<String> = arrayOf(),
   vararg ffmpegArgs: String = arrayOf(
     "-speed", "0",
     "-c:a", "copy",
@@ -48,6 +49,8 @@ class FfmpegLiveSaver(
     val s720p = scale("1280:720")
     val s1080p = scale("1920:1080")
 
+    val nvidiaDecoder = videoDecoder("h264_cuvid")
+
     val nvidiaEncoder = videoEncoder("h264_nvenc")
     val qsvEncoder = videoEncoder("h264_qsv")
     val x264Encoder = videoEncoder("libx264")
@@ -59,6 +62,7 @@ class FfmpegLiveSaver(
     val f60 = frame(60)
 
     fun speed(speed: Int) = arrayOf("-speed", speed.toString())
+    fun videoDecoder(encoder: String) = arrayOf("-c:v", encoder)
     fun videoEncoder(encoder: String) = arrayOf("-c:v", encoder)
     fun audioEncoder(encoder: String) = arrayOf("-c:a", encoder)
     fun byteRage(rate: String) = arrayOf("-b:v", rate)
@@ -70,15 +74,18 @@ class FfmpegLiveSaver(
   }
 
   private val process = Runtime.getRuntime()
-    .exec(arrayOf("ffmpeg",
-      "-i", "pipe:0"
-    ) + ffmpegArgs + arrayOf(
+    .exec(arrayOf(
+      "ffmpeg",
+      *ffmpegDecoderArgs,
+      "-i", "pipe:0",
+      *ffmpegArgs,
       "-f", fileType,
-      "pipe:1"))
+      "pipe:1",
+    ))
   private val inputStream = process.inputStream
   private val outputStream = process.outputStream
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
-  private val bufferPool = HeapMemoryPool(256 * 1024)
+  private val bufferPool = HeapMemoryPool(256 * 1024, 8)
 
   init {
     if (logger.debugEnabled) coroutineScope.launch(Dispatchers.IO) {

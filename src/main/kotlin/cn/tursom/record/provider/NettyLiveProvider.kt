@@ -73,7 +73,7 @@ open class NettyLiveProvider(
               throwCloseException = true
               cont.resume(null)
             }
-            HttpResponseStatus.FOUND -> {
+            HttpResponseStatus.MOVED_PERMANENTLY, HttpResponseStatus.FOUND -> {
               val movedLocation = msg.headers()[HttpHeaderNames.LOCATION]
               //logger.info("live location moved to {}", movedLocation)
               cont.resume(movedLocation)

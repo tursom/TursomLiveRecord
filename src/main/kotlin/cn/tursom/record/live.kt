@@ -2,6 +2,7 @@ package cn.tursom.record
 
 import cn.tursom.core.ThreadLocalSimpleDateFormat
 import cn.tursom.core.buffer.ByteBuffer
+import cn.tursom.core.coroutine.bufferTicker
 import cn.tursom.core.seconds
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.record.provider.BilibiliLiveProvider
@@ -11,6 +12,10 @@ import cn.tursom.record.saver.FileLiveSaver
 import cn.tursom.record.saver.LiveSaver
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlin.io.path.Path
+import kotlin.io.path.createDirectories
 import kotlin.random.Random
 
 private val logger = Slf4jImpl.getLogger()
@@ -18,29 +23,32 @@ private val retryDelaySecondsList = intArrayOf(5, 5, 10, 10, 30, 30, 60, 60, 60,
 private val dateFormat = ThreadLocalSimpleDateFormat("YYYY-MM-dd HH-mm-ss")
 
 private const val fileMaxSize = 4L * 1024 * 1024 * 1024
+private val connectTicker = bufferTicker(5.seconds().toMillis(), 1)
 
 private val recordRooms = listOf(
-  //1138 to "乌拉录播",
+  1138 to "乌拉录播",
   23018529 to "盐咪yami录播",
-  //917818 to "tursom录播",
-  //10413051 to "宇佐紀ノノ_usagi 录播",
-  //14197798 to "安晴Ankii 录播",
-  //4767523 to "沙月录播",
-  //1346192 to "潮留芥末录播",
-  //1016818 to "猫屋敷梨梨录播",
+  917818 to "tursom录播",
+  10413051 to "宇佐紀ノノ_usagi 录播",
+  14197798 to "安晴Ankii 录播",
+  4767523 to "沙月录播",
+  1346192 to "潮留芥末录播",
+  1016818 to "猫屋敷梨梨录播",
+  292397 to "巫贼录播",
+  7906153 to "喵枫にゃぁ 录播",
   //21921046 to "测试录播",
 )
 
 suspend fun startRecord(roomId: Int, title: String) {
   var dataChannel = Channel<ByteBuffer>(128)
   var liveSaver: LiveSaver? = null
-  var liveProvider = NettyBilibiliLiveProvider(roomId, dataChannel = dataChannel)
+  var liveProvider = NettyBilibiliLiveProvider(roomId, dataChannel = dataChannel, highQn = true)
   //var liveProvider = BilibiliLiveProvider(roomId, dataChannel = dataChannel)
   val fileType = "flv"
-  //val ffmpegArgs = FfmpegLiveSaver.speed(0) + FfmpegLiveSaver.nvidiaEncoder +
-  //  FfmpegLiveSaver.byteRage("2000k") + FfmpegLiveSaver.s720p + FfmpegLiveSaver.f30
-  val ffmpegArgs = FfmpegLiveSaver.x264Encoder + FfmpegLiveSaver.byteRage("2000k") +
-    FfmpegLiveSaver.PresetEnum.FAST.param + FfmpegLiveSaver.s720p
+  val ffmpegArgs = FfmpegLiveSaver.speed(0) + FfmpegLiveSaver.nvidiaEncoder +
+    FfmpegLiveSaver.byteRage("2000k") + FfmpegLiveSaver.s720p + FfmpegLiveSaver.f30
+  //val ffmpegArgs = FfmpegLiveSaver.x264Encoder + FfmpegLiveSaver.byteRage("2000k") +
+  //  FfmpegLiveSaver.PresetEnum.FAST.param + FfmpegLiveSaver.s720p
   //val ffmpegArgs = FfmpegLiveSaver.speed(6) + FfmpegLiveSaver.x265Encoder +
   //  FfmpegLiveSaver.copyAudioEncoder + arrayOf("-movflags", "frag_keyframe+empty_moov")
 
@@ -59,12 +67,14 @@ suspend fun startRecord(roomId: Int, title: String) {
         waitSeconds = retryDelaySecondsIterator.nextInt()
       }
       try {
-        liveProvider = NettyBilibiliLiveProvider(roomId, dataChannel = dataChannel, onException = onException)
+        connectTicker.receive()
+        liveProvider =
+          NettyBilibiliLiveProvider(roomId, dataChannel = dataChannel, onException = onException, highQn = true)
         //liveProvider = BilibiliLiveProvider(roomId, dataChannel = dataChannel, onException = onException)
         liveProvider.startRecord()
         liveSaver = FfmpegLiveSaver(
-          FileLiveSaver("$title-${dateFormat.now()}.flv", maxSize = fileMaxSize, onException = onException),
-          fileType, dataChannel, ffmpegArgs = ffmpegArgs
+          FileLiveSaver("record/$title-${dateFormat.now()}.flv", maxSize = fileMaxSize, onException = onException),
+          fileType, dataChannel, ffmpegArgs = ffmpegArgs, ffmpegDecoderArgs = FfmpegLiveSaver.nvidiaDecoder
         )
         //liveSaver = FileLiveSaver("$title-${dateFormat.now()}.flv",
         //  dataChannel = dataChannel,
@@ -87,8 +97,10 @@ suspend fun startRecord(roomId: Int, title: String) {
     //  onException = liveProvider.onException
     //)
     liveSaver = FfmpegLiveSaver(
-      FileLiveSaver("$title-${dateFormat.now()}.flv", maxSize = fileMaxSize, onException = liveProvider.onException),
-      fileType, dataChannel, ffmpegArgs = ffmpegArgs
+      FileLiveSaver("record/$title-${dateFormat.now()}.flv",
+        maxSize = fileMaxSize,
+        onException = liveProvider.onException),
+      fileType, dataChannel, ffmpegArgs = ffmpegArgs, ffmpegDecoderArgs = FfmpegLiveSaver.nvidiaDecoder
     )
   } catch (e: Exception) {
     liveProvider.finish()
@@ -96,9 +108,13 @@ suspend fun startRecord(roomId: Int, title: String) {
   }
 }
 
-suspend fun main() {
+fun main() = runBlocking {
+  Path("record").createDirectories()
+
   recordRooms.forEach { (roomId, title) ->
-    startRecord(roomId, title)
+    launch {
+      startRecord(roomId, title)
+    }
   }
 
   while (true) {
