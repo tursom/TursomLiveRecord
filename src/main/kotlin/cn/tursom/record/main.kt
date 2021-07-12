@@ -15,6 +15,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 private val logger = Slf4jImpl.getLogger()
@@ -37,8 +38,8 @@ suspend fun startRecordOnce(
   var liveSaver: FileLiveSaver? = null
   val liveProvider = BilibiliLiveProvider(roomId, dataChannel)
   liveProvider.onException = {
-    liveProvider.finish()
-    liveSaver?.finish()
+    //liveProvider.finish()
+    //liveSaver?.finish()
     onException(it)
   }
   try {
@@ -65,6 +66,7 @@ fun main() = runBlocking {
     val recordingRooms = ConcurrentHashMap<Int, String>()
 
     suspend fun connect(roomId: Int, title: String, wsClient: BiliWSClient) {
+      val danmuOutputStream = File("$title-${dateFormat.now()}.danmu").outputStream().buffered()
       try {
         recordTicker.receive()
         var onException: (suspend (Exception) -> Unit)? = null
@@ -85,6 +87,8 @@ fun main() = runBlocking {
                 }
               }
             }
+            @Suppress("BlockingMethodInNonBlockingContext")
+            danmuOutputStream.close()
             recordingRooms.remove(roomId)
           }
         }

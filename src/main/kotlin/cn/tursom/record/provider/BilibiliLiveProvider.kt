@@ -9,7 +9,6 @@ import cn.tursom.utils.AsyncHttpRequest
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
-import java.io.IOException
 import java.io.InputStream
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -20,7 +19,22 @@ class BilibiliLiveProvider(
   private val highQn: Boolean = false,
   var onException: suspend (e: Exception) -> Unit = {},
 ) : LiveProvider {
-  companion object : Slf4jImpl()
+  companion object : Slf4jImpl() {
+    object GetLiveStreamFailedException : Exception("get live stream failed")
+
+    private suspend fun getLiveJson(roomId: Int, qn: String): BiliLiveUrl {
+      val url = "https://api.live.bilibili.com/room/v1/Room/playUrl?cid=$roomId&quality=$qn&platform=web"
+      return AsyncHttpRequest.getStr(url).fromJson()
+    }
+
+    suspend fun getLiveUrl(roomId: Int, highQn: Boolean = false): String {
+      var liveJson = getLiveJson(roomId, "-1")
+      if (highQn && liveJson.data.current_qn != liveJson.data.quality_description[0].qn) {
+        liveJson = getLiveJson(roomId, liveJson.data.quality_description[0].qn.toString())
+      }
+      return liveJson.data.durl[0].url
+    }
+  }
 
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
   private val bufferPool = HeapMemoryPool(bufferBlockSize)
@@ -50,31 +64,32 @@ class BilibiliLiveProvider(
   }
 
   suspend fun startRecord() {
-    var liveJson = getLiveJson(roomId, "-1")
-    if (highQn && liveJson.data.current_qn != liveJson.data.quality_description[0].qn) {
-      liveJson = getLiveJson(roomId, liveJson.data.quality_description[0].qn.toString())
-    }
-    val url = liveJson.data.durl[0].url
+    val url = getLiveUrl(roomId, highQn)
     val response = AsyncHttpRequest.get(url)
-    val inputStream = response.body()!!.byteStream()
-    this.inputStream = inputStream
-    var buffer = bufferPool.get()
-    while (buffer.writeable != 0) {
-      buffer.put(inputStream)
+    if (response.isSuccessful.not()) {
+      logger.warn("get live stream failed")
+      throw GetLiveStreamFailedException
     }
+    //response.body()!!.source().buffer.
+    val inputStream = response.body()!!.source().inputStream()
+    println(inputStream.javaClass)
+    this.inputStream = inputStream
 
     coroutineScope.launch(Dispatchers.IO) {
       try {
         while (!closed) {
+          val buffer = bufferPool.get()
           if (buffer !is PooledByteBuffer) {
             logger.warn("out of memory pool")
           }
+          //while (inputStream.available() == 0) {
+          //  delay(100)
+          //}
           while (buffer.writeable != 0) {
             buffer.put(inputStream)
           }
           logger.debug("room {} provide buffer", roomId)
           dataChannel.send(buffer)
-          buffer = bufferPool.get()
         }
       } catch (e: CancellationException) {
         logger.info("BilibiliLiveProvider canceled", e)
@@ -88,12 +103,6 @@ class BilibiliLiveProvider(
         finish()
       }
     }
-  }
-
-  private suspend fun getLiveJson(roomId: Int, qn: String): BiliLiveUrl {
-    val url = "https://api.live.bilibili.com/room/v1/Room/playUrl?cid=$roomId&quality=$qn&platform=web"
-    val biliLiveUrl = AsyncHttpRequest.getStr(url).fromJson<BiliLiveUrl>()
-    return biliLiveUrl
   }
 
   data class BiliLiveUrl(

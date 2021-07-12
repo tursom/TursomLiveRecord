@@ -28,12 +28,20 @@
         <queueSize>512</queueSize>
 
         <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-            <!--<filter class="ch.qos.logback.classic.filter.ThresholdFilter">-->
-            <!--    <level>INFO</level>-->
-            <!--    <onMatch>ACCEPT</onMatch>-->
-            <!--    &lt;!&ndash;<onMatch>DENY</onMatch>&ndash;&gt;-->
-            <!--    <onMismatch>DENY</onMismatch>-->
-            <!--</filter>-->
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <Pattern
+                >%green(%d{yyyy-MM-dd HH:mm:ss.SSS}) %magenta([%t]) %highlight(%p) %cyan([%L %c{20}]) - %highlight(%m)\n
+                </Pattern>
+            </encoder>
+        </appender>
+
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>log/${mode-name}.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>3gb</totalSizeCap>
+                <FileNamePattern>log/${mode-name}.%d{yyyy-MM-dd}.log.gz</FileNamePattern>
+            </rollingPolicy>
             <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
                 <Pattern
                 >%green(%d{yyyy-MM-dd HH:mm:ss.SSS}) %magenta([%t]) %highlight(%p) %cyan([%L %c{20}]) - %highlight(%m)\n
@@ -67,6 +75,6 @@
         <appender-ref ref="ASYNC"/>
         <!--<appender-ref ref="LOKI"/>-->
     </root>
-    <logger name="com" level="info"/>
+    <!--<logger name="com" level="info"/>-->
     <logger name="cn.tursom" level="debug"/>
 </configuration>

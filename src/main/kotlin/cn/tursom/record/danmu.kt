@@ -7,11 +7,10 @@ import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.ws.BiliWSClient
 import com.google.protobuf.TextFormat
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import java.io.OutputStream
 import java.nio.ByteOrder
 
 private val logger = Slf4jImpl.getLogger()
@@ -25,28 +24,11 @@ fun setDefaultTextFormatPrinter(printer: TextFormat.Printer) {
 }
 
 @Suppress("BlockingMethodInNonBlockingContext")
-@OptIn(ExperimentalUnsignedTypes::class, DelicateCoroutinesApi::class)
-suspend fun main() {
-  setDefaultTextFormatPrinter(TextFormat.printer().escapingNonAscii(false))
-
-  val danmuChannel = Channel<Record.RecordMsg>(128)
-  GlobalScope.launch {
-    val os = File("danmu.rec").outputStream().buffered()
-    ShutdownHook.addHook {
-      os.flush()
-      os.close()
-    }
-
-    while (true) {
-      val danmuInfo = danmuChannel.receive()
-      val bytes = danmuInfo.toByteArray()
-      os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
-      os.write(bytes)
-      os.flush()
-    }
-  }
-
-  val biliWSClient = BiliWSClient(22340341)
+suspend fun recordDanmu(
+  biliWSClient: BiliWSClient,
+  os: OutputStream,
+) {
+  val danmuChannel = Channel<Record.RecordMsg>(64)
   biliWSClient.addDanmuListener {
     runBlocking {
       danmuChannel.send(Record.RecordMsg.newBuilder()
@@ -67,6 +49,36 @@ suspend fun main() {
     }
   }
 
+  os.use {
+    while (true) {
+      val danmuInfo = danmuChannel.receive()
+      val bytes = danmuInfo.toByteArray()
+      os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
+      os.write(bytes)
+      os.flush()
+    }
+  }
+}
+
+suspend fun recordDanmu(
+  roomId: Int,
+  file: String,
+) {
+  val biliWSClient = BiliWSClient(roomId)
+  val os = File(file).outputStream().buffered()
+  ShutdownHook.addHook {
+    os.flush()
+    os.close()
+  }
+
+  recordDanmu(biliWSClient, os)
 
   biliWSClient.connect()
+}
+
+@Suppress("BlockingMethodInNonBlockingContext")
+@OptIn(ExperimentalUnsignedTypes::class, DelicateCoroutinesApi::class)
+suspend fun main() {
+  setDefaultTextFormatPrinter(TextFormat.printer().escapingNonAscii(false))
+  recordDanmu(22340341, "danmu.rec")
 }

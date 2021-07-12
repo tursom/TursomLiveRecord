@@ -1,37 +1,45 @@
 package cn.tursom.record.saver
 
+import cn.tursom.core.AsyncFile
+import cn.tursom.core.ShutdownHook
 import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.log.impl.Slf4jImpl
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.ReceiveChannel
-import java.io.File
+import java.io.IOException
 import kotlin.coroutines.EmptyCoroutineContext
 
 class FileLiveSaver(
   private val path: String,
-  private val bufferChannel: Channel<ByteBuffer> = Channel(32),
+  private val dataChannel: Channel<ByteBuffer> = Channel(32),
   private val maxSize: Long = Long.MAX_VALUE,
   var onException: suspend (e: Exception) -> Unit = {},
 ) : LiveSaver {
   companion object : Slf4jImpl()
 
-  private val os = File(path).outputStream()
+  private val os = AsyncFile(path)
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
+  private var savedSize: Long = 0
 
-  private var savedSize = 0
+  private val hook = ShutdownHook.addHook(true) {
+    close()
+  }
 
   init {
-    coroutineScope.launch(Dispatchers.IO) {
+    logger.info("create record file {} result {}", path, os.create())
+    coroutineScope.launch {
       try {
         while (true) {
-          val buffer = bufferChannel.receive()
-          while (buffer.readable != 0) {
-            savedSize += buffer.writeTo(os)
+          val buffer = dataChannel.receive()
+          while (buffer.isReadable) {
+            val writeSize = os.writeAndWait(buffer)
+            if (writeSize <= 0) throw IOException("file closed")
+            savedSize += writeSize
           }
           buffer.close()
-          logger.debug("file {} save buffer", path)
+          logger.debug("file {} save buffer. saved {} M", path, savedSize / (1024 * 1024))
 
           if (savedSize >= maxSize) {
             finish()
@@ -42,19 +50,27 @@ class FileLiveSaver(
           }
         }
       } catch (e: ClosedReceiveChannelException) {
+      } catch (e: Exception) {
+        logger.warn("an exception caused on save file", e)
+      } finally {
+        finish()
       }
     }
   }
 
   override suspend fun save(buffer: ByteBuffer) {
-    bufferChannel.send(buffer)
+    dataChannel.send(buffer)
+  }
+
+  override suspend fun finish() {
+    close()
   }
 
   @OptIn(ExperimentalCoroutinesApi::class)
-  override suspend fun finish() {
+  fun close() {
     try {
-      if (!(bufferChannel.isClosedForReceive || bufferChannel.isClosedForSend)) {
-        (bufferChannel as ReceiveChannel<*>).cancel()
+      if (!(dataChannel.isClosedForReceive || dataChannel.isClosedForSend)) {
+        (dataChannel as ReceiveChannel<*>).cancel()
       }
     } catch (e: Exception) {
     }

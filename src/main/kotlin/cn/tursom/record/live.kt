@@ -5,16 +5,16 @@ import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.core.seconds
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.record.provider.BilibiliLiveProvider
+import cn.tursom.record.provider.NettyBilibiliLiveProvider
 import cn.tursom.record.saver.FfmpegLiveSaver
 import cn.tursom.record.saver.FileLiveSaver
 import cn.tursom.record.saver.LiveSaver
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import java.io.IOException
 import kotlin.random.Random
 
 private val logger = Slf4jImpl.getLogger()
-private val retryDelaySecondsList = intArrayOf(5, 5, 10, 10, 30, 30, 60, 60, 60)
+private val retryDelaySecondsList = intArrayOf(5, 5, 10, 10, 30, 30, 60, 60, 60, 180)
 private val dateFormat = ThreadLocalSimpleDateFormat("YYYY-MM-dd HH-mm-ss")
 
 private const val fileMaxSize = 4L * 1024 * 1024 * 1024
@@ -25,17 +25,22 @@ private val recordRooms = listOf(
   //917818 to "tursom录播",
   //10413051 to "宇佐紀ノノ_usagi 录播",
   //14197798 to "安晴Ankii 录播",
+  //4767523 to "沙月录播",
+  //1346192 to "潮留芥末录播",
+  //1016818 to "猫屋敷梨梨录播",
+  //21921046 to "测试录播",
 )
 
 suspend fun startRecord(roomId: Int, title: String) {
   var dataChannel = Channel<ByteBuffer>(128)
   var liveSaver: LiveSaver? = null
-  var liveProvider = BilibiliLiveProvider(roomId, dataChannel)
+  var liveProvider = NettyBilibiliLiveProvider(roomId, dataChannel = dataChannel)
+  //var liveProvider = BilibiliLiveProvider(roomId, dataChannel = dataChannel)
   val fileType = "flv"
   //val ffmpegArgs = FfmpegLiveSaver.speed(0) + FfmpegLiveSaver.nvidiaEncoder +
-  //  FfmpegLiveSaver.byteRage("2000k") + FfmpegLiveSaver.s720p
+  //  FfmpegLiveSaver.byteRage("2000k") + FfmpegLiveSaver.s720p + FfmpegLiveSaver.f30
   val ffmpegArgs = FfmpegLiveSaver.x264Encoder + FfmpegLiveSaver.byteRage("2000k") +
-    FfmpegLiveSaver.PresetEnum.MEDIUM.param + FfmpegLiveSaver.s720p
+    FfmpegLiveSaver.PresetEnum.FAST.param + FfmpegLiveSaver.s720p
   //val ffmpegArgs = FfmpegLiveSaver.speed(6) + FfmpegLiveSaver.x265Encoder +
   //  FfmpegLiveSaver.copyAudioEncoder + arrayOf("-movflags", "frag_keyframe+empty_moov")
 
@@ -54,15 +59,21 @@ suspend fun startRecord(roomId: Int, title: String) {
         waitSeconds = retryDelaySecondsIterator.nextInt()
       }
       try {
-        liveProvider = BilibiliLiveProvider(roomId, dataChannel, onException = onException)
+        liveProvider = NettyBilibiliLiveProvider(roomId, dataChannel = dataChannel, onException = onException)
+        //liveProvider = BilibiliLiveProvider(roomId, dataChannel = dataChannel, onException = onException)
         liveProvider.startRecord()
         liveSaver = FfmpegLiveSaver(
           FileLiveSaver("$title-${dateFormat.now()}.flv", maxSize = fileMaxSize, onException = onException),
           fileType, dataChannel, ffmpegArgs = ffmpegArgs
         )
+        //liveSaver = FileLiveSaver("$title-${dateFormat.now()}.flv",
+        //  dataChannel = dataChannel,
+        //  maxSize = fileMaxSize,
+        //  onException = onException
+        //)
         break
-      } catch (e: IOException) {
-        logger.info("room live not started")
+      } catch (e: BilibiliLiveProvider.Companion.GetLiveStreamFailedException) {
+        logger.info("room {} live not started", roomId)
       } catch (e: Exception) {
         logger.warn("an exception caused on reconnect to live server", e)
       }
@@ -70,11 +81,17 @@ suspend fun startRecord(roomId: Int, title: String) {
   }
   try {
     liveProvider.startRecord()
+    //liveSaver = FileLiveSaver("$title-${dateFormat.now()}.flv",
+    //  dataChannel = dataChannel,
+    //  maxSize = fileMaxSize,
+    //  onException = liveProvider.onException
+    //)
     liveSaver = FfmpegLiveSaver(
-      FileLiveSaver("$title-${dateFormat.now()}.flv", maxSize = fileMaxSize),
+      FileLiveSaver("$title-${dateFormat.now()}.flv", maxSize = fileMaxSize, onException = liveProvider.onException),
       fileType, dataChannel, ffmpegArgs = ffmpegArgs
     )
   } catch (e: Exception) {
+    liveProvider.finish()
     liveProvider.onException(e)
   }
 }

@@ -49,10 +49,14 @@ class FfmpegLiveSaver(
     val s1080p = scale("1920:1080")
 
     val nvidiaEncoder = videoEncoder("h264_nvenc")
+    val qsvEncoder = videoEncoder("h264_qsv")
     val x264Encoder = videoEncoder("libx264")
     val x265Encoder = videoEncoder("libx265")
 
     val copyAudioEncoder = audioEncoder("copy")
+
+    val f30 = frame(30)
+    val f60 = frame(60)
 
     fun speed(speed: Int) = arrayOf("-speed", speed.toString())
     fun videoEncoder(encoder: String) = arrayOf("-c:v", encoder)
@@ -60,6 +64,9 @@ class FfmpegLiveSaver(
     fun byteRage(rate: String) = arrayOf("-b:v", rate)
     fun vsync(type: VSyncEnum) = arrayOf("-vsync", type.code)
     fun scale(scale: String) = arrayOf("-vf", "scale=$scale")
+    fun frame(frame: Int) = arrayOf("-r", frame.toString())
+    fun frame(frame: Float) = arrayOf("-r", frame.toString())
+    fun frame(frame: String) = arrayOf("-r", frame)
   }
 
   private val process = Runtime.getRuntime()
@@ -84,25 +91,31 @@ class FfmpegLiveSaver(
     }
     coroutineScope.launch(Dispatchers.IO) {
       try {
-        while (true) {
-          val buffer = bufferPool.get()
-          while (buffer.writeable != 0) {
-            buffer.put(inputStream)
+        inputStream.use {
+          while (true) {
+            val buffer = bufferPool.get()
+            while (buffer.isWriteable) {
+              buffer.put(inputStream)
+            }
+            prevSaver.save(buffer)
           }
-          prevSaver.save(buffer)
         }
+      } catch (e: ClosedReceiveChannelException) {
       } finally {
         finish()
       }
     }
     coroutineScope.launch(Dispatchers.IO) {
       try {
-        while (true) {
-          val buffer = dataChannel.receive()
-          while (buffer.readable != 0) {
-            buffer.writeTo(outputStream)
+        outputStream.use {
+          val byteArrayBuf = ByteArray(1024)
+          while (true) {
+            val buffer = dataChannel.receive()
+            while (buffer.isReadable) {
+              buffer.writeTo(outputStream, byteArrayBuf)
+            }
+            buffer.close()
           }
-          buffer.close()
         }
       } catch (e: ClosedReceiveChannelException) {
       } finally {
