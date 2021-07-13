@@ -26,17 +26,17 @@ private const val fileMaxSize = 4L * 1024 * 1024 * 1024
 private val connectTicker = bufferTicker(5.seconds().toMillis(), 1)
 
 private val recordRooms = listOf(
-  // 1138 to "乌拉录播",
-  // 23018529 to "盐咪yami录播",
-  // 917818 to "tursom录播",
-  // 10413051 to "宇佐紀ノノ_usagi 录播",
-  // 14197798 to "安晴Ankii 录播",
-  // 4767523 to "沙月录播",
-  // 1346192 to "潮留芥末录播",
-  // 1016818 to "猫屋敷梨梨录播",
-  // 292397 to "巫贼录播",
-  // 7906153 to "喵枫にゃぁ 录播",
-  139 to  "测试录播",
+  1138 to "乌拉录播",
+  23018529 to "盐咪yami录播",
+  917818 to "tursom录播",
+  10413051 to "宇佐紀ノノ_usagi 录播",
+  14197798 to "安晴Ankii 录播",
+  4767523 to "沙月录播",
+  1346192 to "潮留芥末录播",
+  1016818 to "猫屋敷梨梨录播",
+  292397 to "巫贼录播",
+  7906153 to "喵枫にゃぁ 录播",
+  // 139 to  "测试录播",
 )
 
 suspend fun startRecord(roomId: Int, title: String) {
@@ -72,15 +72,15 @@ suspend fun startRecord(roomId: Int, title: String) {
           NettyBilibiliLiveProvider(roomId, dataChannel = dataChannel, onException = onException, highQn = true)
         //liveProvider = BilibiliLiveProvider(roomId, dataChannel = dataChannel, onException = onException)
         liveProvider.startRecord()
-        // liveSaver = FfmpegLiveSaver(
-        //   FileLiveSaver("record/$title-${dateFormat.now()}.flv", maxSize = fileMaxSize, onException = onException),
-        //   fileType, dataChannel, ffmpegArgs = ffmpegArgs, ffmpegDecoderArgs = FfmpegLiveSaver.nvidiaDecoder
-        // )
-        liveSaver = FileLiveSaver("$title-${dateFormat.now()}.flv",
-         dataChannel = dataChannel,
-         maxSize = fileMaxSize,
-         onException = onException
+        liveSaver = FfmpegLiveSaver(
+          FileLiveSaver("record/$title-${dateFormat.now()}.flv", maxSize = fileMaxSize, onException = onException),
+          fileType, dataChannel, ffmpegArgs = ffmpegArgs, ffmpegDecoderArgs = FfmpegLiveSaver.nvidiaDecoder
         )
+        // liveSaver = FileLiveSaver("$title-${dateFormat.now()}.flv",
+        //  dataChannel = dataChannel,
+        //  maxSize = fileMaxSize,
+        //  onException = onException
+        // )
         break
       } catch (e: BilibiliLiveProvider.Companion.GetLiveStreamFailedException) {
         logger.info("room {} live not started", roomId)
@@ -91,17 +91,17 @@ suspend fun startRecord(roomId: Int, title: String) {
   }
   try {
     liveProvider.startRecord()
-    liveSaver = FileLiveSaver("$title-${dateFormat.now()}.flv",
-     dataChannel = dataChannel,
-     maxSize = fileMaxSize,
-     onException = liveProvider.onException
-    )
-    // liveSaver = FfmpegLiveSaver(
-    //   FileLiveSaver("record/$title-${dateFormat.now()}.flv",
-    //     maxSize = fileMaxSize,
-    //     onException = liveProvider.onException),
-    //   fileType, dataChannel, ffmpegArgs = ffmpegArgs, ffmpegDecoderArgs = FfmpegLiveSaver.nvidiaDecoder
+    // liveSaver = FileLiveSaver("$title-${dateFormat.now()}.flv",
+    //  dataChannel = dataChannel,
+    //  maxSize = fileMaxSize,
+    //  onException = liveProvider.onException
     // )
+    liveSaver = FfmpegLiveSaver(
+      FileLiveSaver("record/$title-${dateFormat.now()}.flv",
+        maxSize = fileMaxSize,
+        onException = liveProvider.onException),
+      fileType, dataChannel, ffmpegArgs = ffmpegArgs, ffmpegDecoderArgs = FfmpegLiveSaver.nvidiaDecoder
+    )
   } catch (e: Exception) {
     liveProvider.finish()
     liveProvider.onException(e)
