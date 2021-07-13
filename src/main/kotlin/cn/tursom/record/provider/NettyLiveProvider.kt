@@ -54,6 +54,7 @@ open class NettyLiveProvider(
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun channelInactive(ctx: ChannelHandlerContext) {
+      compositeByteBuf?.release()
       if (throwCloseException) GlobalScope.launch {
         onException(IOException())
       }
@@ -100,7 +101,7 @@ open class NettyLiveProvider(
 
           if (compositeByteBuf.numComponents() == compositeByteBuf.maxNumComponents()) {
             logger.debug("provide data: {}", compositeByteBuf)
-            val provideByteBuffer = NettyByteBuffer(compositeByteBuf)
+            val provideByteBuffer = NettyByteBuffer(compositeByteBuf, autoClose = true)
             this.compositeByteBuf = ctx.alloc().compositeBuffer(256)
             runBlocking {
               dataChannel.send(provideByteBuffer)
