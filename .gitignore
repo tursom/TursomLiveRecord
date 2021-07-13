@@ -1,8 +1,8 @@
 .gradle
 .idea
-gradle
-gradlew
-gradlew.bat
-gradle.properties
+#gradle
+#gradlew
+#gradlew.bat
+#gradle.properties
 src/main/java/cn/tursom/record
 build

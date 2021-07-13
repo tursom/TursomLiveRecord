@@ -23,10 +23,7 @@ import java.io.IOException
 import java.net.URI
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
+import kotlin.coroutines.*
 
 
 @Suppress("MemberVisibilityCanBePrivate", "CanBeParameter")
@@ -76,15 +73,14 @@ open class NettyLiveProvider(
             }
             HttpResponseStatus.MOVED_PERMANENTLY, HttpResponseStatus.FOUND -> {
               val movedLocation = msg.headers()[HttpHeaderNames.LOCATION]
-              //logger.info("live location moved to {}", movedLocation)
-              cont.resume(movedLocation)
-              ctx.close()
+              logger.debug("live location moved to {}", movedLocation)
+              ctx.close().addListener {
+                cont.resume(movedLocation)
+              }
             }
             else -> {
               ctx.close().addListener {
-                GlobalScope.launch {
-                  onException(IOException(msg.status().toString()))
-                }
+                cont.resumeWithException(IOException(msg.status().toString()))
               }
             }
           }
