@@ -16,7 +16,7 @@ class FfmpegLiveSaver(
   private val prevSaver: LiveSaver,
   fileType: String = "flv",
   private val dataChannel: Channel<ByteBuffer> = Channel(32),
-  val ffmpegDecoderArgs: Array<String> = arrayOf(),
+  ffmpegDecoderArgs: Array<String> = arrayOf(),
   vararg ffmpegArgs: String = arrayOf(
     "-speed", "0",
     "-c:a", "copy",
@@ -104,12 +104,12 @@ class FfmpegLiveSaver(
             while (buffer.isWriteable) {
               buffer.put(inputStream)
             }
-            prevSaver.save(buffer)
+            prevSaver.write(buffer)
           }
         }
       } catch (e: ClosedReceiveChannelException) {
       } finally {
-        finish()
+        close()
       }
     }
     coroutineScope.launch(Dispatchers.IO) {
@@ -126,17 +126,21 @@ class FfmpegLiveSaver(
         }
       } catch (e: ClosedReceiveChannelException) {
       } finally {
-        finish()
+        close()
       }
     }
   }
 
-  override suspend fun save(buffer: ByteBuffer) {
+  override suspend fun write(buffer: ByteBuffer) {
     dataChannel.send(buffer)
   }
 
+  override suspend fun flush(timeout: Long): Long {
+    return 0
+  }
+
   @Suppress("BlockingMethodInNonBlockingContext")
-  override suspend fun finish() {
+  override fun close() {
     try {
       outputStream.close()
     } catch (e: Exception) {
@@ -149,7 +153,7 @@ class FfmpegLiveSaver(
       process.destroy()
     } catch (e: Exception) {
     }
-    prevSaver.finish()
+    prevSaver.close()
     try {
       coroutineScope.cancel()
     } catch (e: Exception) {

@@ -1,8 +1,6 @@
 package cn.tursom.record.provider
 
+import cn.tursom.channel.enhance.BufferedChannelReader
 import cn.tursom.core.buffer.ByteBuffer
 
-interface LiveProvider {
-  suspend fun getData(): ByteBuffer
-  suspend fun finish()
-}
+interface LiveProvider : BufferedChannelReader<ByteBuffer>

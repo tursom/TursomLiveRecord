@@ -4,6 +4,7 @@ import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.core.buffer.impl.PooledByteBuffer
 import cn.tursom.core.fromJson
 import cn.tursom.core.pool.HeapMemoryPool
+import cn.tursom.core.pool.MemoryPool
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.utils.AsyncHttpRequest
 import kotlinx.coroutines.*
@@ -15,8 +16,8 @@ import kotlin.coroutines.EmptyCoroutineContext
 class BilibiliLiveProvider(
   private val roomId: Int,
   private val dataChannel: Channel<ByteBuffer> = Channel(32),
-  bufferBlockSize: Int = 256 * 1024,
   private val highQn: Boolean = false,
+  override val memoryPool: MemoryPool = HeapMemoryPool(256 * 1024),
   var onException: suspend (e: Exception) -> Unit = {},
 ) : LiveProvider {
   companion object : Slf4jImpl() {
@@ -37,16 +38,14 @@ class BilibiliLiveProvider(
   }
 
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
-  private val bufferPool = HeapMemoryPool(bufferBlockSize)
   private var closed = false
   private var inputStream: InputStream? = null
 
-  override suspend fun getData(): ByteBuffer {
+  override suspend fun read(pool: MemoryPool, timeout: Long): ByteBuffer {
     return dataChannel.receive()
   }
 
-  @OptIn(ExperimentalCoroutinesApi::class)
-  override suspend fun finish() {
+  override fun close() {
     closed = true
     try {
       @Suppress("BlockingMethodInNonBlockingContext")
@@ -72,19 +71,16 @@ class BilibiliLiveProvider(
     }
     //response.body()!!.source().buffer.
     val inputStream = response.body()!!.source().inputStream()
-    println(inputStream.javaClass)
+    //println(inputStream.javaClass)
     this.inputStream = inputStream
 
     coroutineScope.launch(Dispatchers.IO) {
       try {
         while (!closed) {
-          val buffer = bufferPool.get()
+          val buffer = memoryPool.get()
           if (buffer !is PooledByteBuffer) {
             logger.warn("out of memory pool")
           }
-          //while (inputStream.available() == 0) {
-          //  delay(100)
-          //}
           while (buffer.writeable != 0) {
             buffer.put(inputStream)
           }
@@ -100,7 +96,7 @@ class BilibiliLiveProvider(
         GlobalScope.launch(Dispatchers.IO) {
           onException(e)
         }
-        finish()
+        close()
       }
     }
   }

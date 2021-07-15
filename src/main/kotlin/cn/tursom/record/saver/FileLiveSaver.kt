@@ -23,6 +23,7 @@ class FileLiveSaver(
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
   private var savedSize: Long = 0
 
+  @Suppress("unused")
   private val hook = ShutdownHook.addHook(true) {
     close()
   }
@@ -42,7 +43,7 @@ class FileLiveSaver(
           logger.debug("file {} save buffer. saved {} M", path, savedSize / (1024 * 1024))
 
           if (savedSize >= maxSize) {
-            finish()
+            close()
             @OptIn(DelicateCoroutinesApi::class)
             GlobalScope.launch(Dispatchers.IO) {
               onException(Exception("file write finished"))
@@ -53,21 +54,17 @@ class FileLiveSaver(
       } catch (e: Exception) {
         logger.warn("an exception caused on save file", e)
       } finally {
-        finish()
+        close()
       }
     }
   }
 
-  override suspend fun save(buffer: ByteBuffer) {
+  override suspend fun write(buffer: ByteBuffer) {
     dataChannel.send(buffer)
   }
 
-  override suspend fun finish() {
-    close()
-  }
-
   @OptIn(ExperimentalCoroutinesApi::class)
-  fun close() {
+  override fun close() {
     try {
       if (!(dataChannel.isClosedForReceive || dataChannel.isClosedForSend)) {
         (dataChannel as ReceiveChannel<*>).cancel()
@@ -83,5 +80,9 @@ class FileLiveSaver(
       coroutineScope.cancel()
     } catch (e: Exception) {
     }
+  }
+
+  override suspend fun flush(timeout: Long): Long {
+    return 0
   }
 }
