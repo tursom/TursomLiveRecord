@@ -31,7 +31,7 @@ open class NettyLiveProvider(
   val log: Boolean = false,
   val compressed: Boolean = true,
   private val headers: Map<String, String>? = null,
-  private val dataChannel: Channel<ByteBuffer> = Channel(32),
+  override val dataChannel: Channel<ByteBuffer> = Channel(32),
   var onException: suspend (e: Exception) -> Unit = {},
 ) : LiveProvider {
   companion object : Slf4jImpl() {
@@ -215,10 +215,6 @@ open class NettyLiveProvider(
       ch?.writeAndFlush(CloseWebSocketFrame(WebSocketCloseStatus.NORMAL_CLOSURE, reasonText))
     }?.addListener(ChannelFutureListener.CLOSE)
     return ch?.closeFuture()
-  }
-
-  override suspend fun getData(): ByteBuffer {
-    return dataChannel.receive()
   }
 
   override suspend fun finish() {

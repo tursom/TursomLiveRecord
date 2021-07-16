@@ -6,7 +6,6 @@ import cn.tursom.core.coroutine.bufferTicker
 import cn.tursom.core.seconds
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.record.provider.BilibiliLiveProvider
-import cn.tursom.record.provider.NettyBilibiliLiveProvider
 import cn.tursom.record.saver.FfmpegLiveSaver
 import cn.tursom.record.saver.FileLiveSaver
 import cn.tursom.record.saver.LiveSaver
@@ -40,13 +39,13 @@ private val recordRooms = listOf(
 )
 
 suspend fun startRecord(roomId: Int, title: String) {
-  var dataChannel = Channel<ByteBuffer>(128)
+  // val dataChannel = Channel<ByteBuffer>(128)
   var liveSaver: LiveSaver? = null
   //var liveProvider = NettyBilibiliLiveProvider(roomId, dataChannel = dataChannel, highQn = true)
-  var liveProvider = BilibiliLiveProvider(roomId, dataChannel = dataChannel)
+  var liveProvider = BilibiliLiveProvider(roomId)
   val fileType = "flv"
   val ffmpegArgs = FfmpegLiveSaver.speed(0) + FfmpegLiveSaver.nvidiaEncoder +
-    FfmpegLiveSaver.byteRage("2000k") + FfmpegLiveSaver.s720p + FfmpegLiveSaver.f30
+      FfmpegLiveSaver.byteRage("2000k") + FfmpegLiveSaver.s720p + FfmpegLiveSaver.f30
   //val ffmpegArgs = FfmpegLiveSaver.x264Encoder + FfmpegLiveSaver.byteRage("2000k") +
   //  FfmpegLiveSaver.PresetEnum.FAST.param + FfmpegLiveSaver.s720p
   //val ffmpegArgs = FfmpegLiveSaver.speed(6) + FfmpegLiveSaver.x265Encoder +
@@ -57,7 +56,7 @@ suspend fun startRecord(roomId: Int, title: String) {
     liveProvider.finish()
     liveSaver?.finish()
     val onException = liveProvider.onException
-    dataChannel = Channel(128)
+    // val dataChannel = Channel<ByteBuffer>(128)
 
     val retryDelaySecondsIterator = retryDelaySecondsList.iterator()
     var waitSeconds = retryDelaySecondsIterator.nextInt()
@@ -70,14 +69,14 @@ suspend fun startRecord(roomId: Int, title: String) {
         connectTicker.receive()
         //liveProvider = NettyBilibiliLiveProvider(roomId,
         //  dataChannel = dataChannel, onException = onException, highQn = true)
-        liveProvider = BilibiliLiveProvider(roomId, dataChannel = dataChannel, onException = onException)
+        liveProvider = BilibiliLiveProvider(roomId, onException = onException)
         liveProvider.startRecord()
         //liveSaver = FfmpegLiveSaver(
         //  FileLiveSaver("record/$title-${dateFormat.now()}.flv", maxSize = fileMaxSize, onException = onException),
         //  fileType, dataChannel, ffmpegArgs = ffmpegArgs, ffmpegDecoderArgs = FfmpegLiveSaver.nvidiaDecoder
         //)
         liveSaver = FileLiveSaver("record/$title-${dateFormat.now()}.flv",
-          dataChannel = dataChannel,
+          dataChannel = liveProvider.dataChannel,
           maxSize = fileMaxSize,
           onException = onException
         )
@@ -92,7 +91,7 @@ suspend fun startRecord(roomId: Int, title: String) {
   try {
     liveProvider.startRecord()
     liveSaver = FileLiveSaver("record/$title-${dateFormat.now()}.flv",
-      dataChannel = dataChannel,
+      dataChannel = liveProvider.dataChannel,
       maxSize = fileMaxSize,
       onException = liveProvider.onException
     )

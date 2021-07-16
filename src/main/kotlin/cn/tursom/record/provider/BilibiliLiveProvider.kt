@@ -14,7 +14,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 
 class BilibiliLiveProvider(
   private val roomId: Int,
-  private val dataChannel: Channel<ByteBuffer> = Channel(32),
+  override val dataChannel: Channel<ByteBuffer> = Channel(32),
   bufferBlockSize: Int = 256 * 1024,
   private val highQn: Boolean = false,
   var onException: suspend (e: Exception) -> Unit = {},
@@ -40,10 +40,6 @@ class BilibiliLiveProvider(
   private val bufferPool = HeapMemoryPool(bufferBlockSize)
   private var closed = false
   private var inputStream: InputStream? = null
-
-  override suspend fun getData(): ByteBuffer {
-    return dataChannel.receive()
-  }
 
   @OptIn(ExperimentalCoroutinesApi::class)
   override suspend fun finish() {
@@ -72,7 +68,7 @@ class BilibiliLiveProvider(
     }
     //response.body()!!.source().buffer.
     val inputStream = response.body()!!.source().inputStream()
-    println(inputStream.javaClass)
+    // println(inputStream.javaClass)
     this.inputStream = inputStream
 
     coroutineScope.launch(Dispatchers.IO) {

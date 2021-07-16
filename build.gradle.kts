@@ -24,6 +24,8 @@ dependencies {
   implementation(group = "io.netty", name = "netty-tcnative-boringssl-static", version = "2.0.39.Final")
   //implementation(group = "io.netty", name = "netty-all", version = "4.1.65.Final")
   //implementation(group = "io.projectreactor.netty", name = "reactor-netty-http", version = "1.0.8")
+
+  testImplementation(group = "junit", name = "junit", version = "4.12")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
