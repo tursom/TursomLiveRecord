@@ -12,12 +12,13 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import java.nio.ByteOrder
 import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.system.exitProcess
 
 class JavaFlvChecker : FlvChecker {
   companion object : Slf4jImpl() {
+    const val FLV_HEADER_SIZE = 9
+
     fun isValidFlvHeader(buf: ByteBuffer): Boolean {
-      if (buf.readable < 9) return false
+      if (buf.readable < FLV_HEADER_SIZE) return false
       if (buf.get() != 0x46.toByte() || buf.get() != 0x4C.toByte() || buf.get() != 0x56.toByte()) {
         return false
       }
@@ -35,112 +36,136 @@ class JavaFlvChecker : FlvChecker {
 
   private val dataChannel = Channel<ByteBuffer>()
   private val resultChannel = Channel<ByteBuffer>(16)
-  private val memoryPool = HeapMemoryPool(512 * 1024, 4)
+  private val memoryPool = HeapMemoryPool(32 * 1024, 16)
   private var writeBuf = memoryPool.get()
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
-  private val dataBuf = HeapByteBuffer(512 * 1024)
+  private val dataBuf = HeapByteBuffer(32 * 1024)
   private var videoTimestamp = 0
   private var audioTimestamp = 0
   private var videoTimestampFix = 0
   private var audioTimestampFix = 0
+  private var filePosition = 0L
+  private var recvData: ByteBuffer = HeapByteBuffer(1)
 
   init {
     coroutineScope.launch {
-      var filePosition = 0L
-      var recvData = dataChannel.receive()
+      try {
+        checkHead()
+        while (true) {
+          val tag = getTag()
+          writeTag(tag)
+        }
+      } catch (e: Exception) {
+        logger.error("an exception caused on check flv file", e)
+      }
+    }
+  }
+
+  private suspend fun checkHead() {
+    recvData = dataChannel.receive()
+    recvData.writeTo(dataBuf)
+    while (dataBuf.readable < FLV_HEADER_SIZE) {
+      recvData.close()
+      recvData = dataChannel.receive()
       recvData.writeTo(dataBuf)
-      while (dataBuf.readable < 9) {
+    }
+
+    if (!isValidFlvHeader(dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE))) {
+      throw InvalidFlvHeaderException()
+    }
+
+    dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE).writeTo(writeBuf)
+    resultChannel.send(writeBuf.slice(0, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE))
+    dataBuf.readPosition += FLV_HEADER_SIZE
+    writeBuf.readPosition += FLV_HEADER_SIZE
+    filePosition += FLV_HEADER_SIZE
+  }
+
+  private suspend fun getTag(): FlvTag {
+    val tagData = getTagHeader()
+    checkTagTimestamp(tagData)
+    getTagBody(tagData)
+    return tagData
+  }
+
+  private suspend fun getTagHeader(): FlvTag {
+    while (dataBuf.readable < FlvTag.TAG_HEADER_SIZE) {
+      dataBuf.reset()
+      if (recvData.readable != 0) {
+        recvData.writeTo(dataBuf)
+      } else {
         recvData.close()
         recvData = dataChannel.receive()
         recvData.writeTo(dataBuf)
       }
+    }
+    val tagData = FlvTag(dataBuf)
+    filePosition += FlvTag.TAG_HEADER_SIZE
+    return tagData
+  }
 
-      if (!isValidFlvHeader(dataBuf.slice(dataBuf.readPosition, 9, writePosition = 9))) {
-        logger.error("invalid flv header")
-        return@launch
-      }
-
-      dataBuf.slice(dataBuf.readPosition, 9, writePosition = 9).writeTo(writeBuf)
-      resultChannel.send(writeBuf.slice(0, 9, writePosition = 9))
-      dataBuf.readPosition += 9
-      writeBuf.readPosition += 9
-      filePosition += 9
-
-      try {
-        while (true) {
-          while (dataBuf.readable < 15) {
-            dataBuf.reset()
-            if (recvData.readable != 0) {
-              recvData.writeTo(dataBuf)
-            } else {
-              recvData.close()
-              recvData = dataChannel.receive()
-              recvData.writeTo(dataBuf)
-            }
-          }
-          val tagData = TagData(dataBuf)
-          filePosition += 15
-          when (tagData.type) {
-            TagType.AUDIO -> {
-              val fixedTimestamp = tagData.timestamp + audioTimestampFix
-              if (fixedTimestamp < audioTimestamp || fixedTimestamp - audioTimestamp > 1.seconds().toMillis()) {
-                audioTimestampFix += audioTimestamp - tagData.timestamp + 10
-              }
-              tagData.timestamp += audioTimestampFix
-              audioTimestamp = tagData.timestamp
-            }
-            TagType.VIDEO -> {
-              val fixedTimestamp = tagData.timestamp + videoTimestampFix
-              if (fixedTimestamp < videoTimestamp || fixedTimestamp - videoTimestamp > 1.seconds().toMillis()) {
-                videoTimestampFix += videoTimestamp - tagData.timestamp + 33
-              }
-              tagData.timestamp += videoTimestampFix
-              videoTimestamp = tagData.timestamp
-            }
-            TagType.SCRIPT -> {
-            }
-          }
-          // logger.debug("{}({}): {}", filePosition.toHexString(), filePosition, tagData)
-
-          while (dataBuf.readable < tagData.dataSize) {
-            dataBuf.reset()
-            if (recvData.readable != 0) {
-              recvData.writeTo(dataBuf)
-            } else {
-              recvData.close()
-              recvData = dataChannel.receive()
-              recvData.writeTo(dataBuf)
-            }
-          }
-          tagData.body = dataBuf.slice(dataBuf.readPosition, tagData.dataSize, 0, tagData.dataSize)
-          dataBuf.skip(tagData.dataSize)
-          filePosition += tagData.dataSize
-
-
-          if (writeBuf.writeable < 15 + tagData.dataSize) {
-            writeBuf.close()
-            writeBuf = if (tagData.dataSize + 15 > memoryPool.blockSize) {
-              HeapByteBuffer(tagData.dataSize + 15)
-            } else {
-              memoryPool.get()
-            }
-          }
-          tagData.writeTag(writeBuf)
-          tagData.body!!.writeTo(writeBuf)
-          val provideBuf = writeBuf.slice(
-            writeBuf.readPosition,
-            tagData.dataSize + 15,
-            writePosition = tagData.dataSize + 15
-          )
-          resultChannel.send(provideBuf)
-          writeBuf.readPosition += tagData.dataSize + 15
-
+  @Suppress("DuplicatedCode")
+  private fun checkTagTimestamp(tag: FlvTag) {
+    when (tag.type) {
+      TagType.AUDIO -> {
+        val fixedTimestamp = tag.timestamp + audioTimestampFix
+        if (fixedTimestamp < audioTimestamp || fixedTimestamp - audioTimestamp > 1.seconds().toMillis()) {
+          audioTimestampFix += audioTimestamp - tag.timestamp + 33 // todo use 1 frame time
         }
-      } catch (e: Exception) {
-        e.printStackTrace()
-        exitProcess(0)
+        tag.timestamp += audioTimestampFix
+        audioTimestamp = tag.timestamp
+      }
+      TagType.VIDEO -> {
+        val fixedTimestamp = tag.timestamp + videoTimestampFix
+        if (fixedTimestamp < videoTimestamp || fixedTimestamp - videoTimestamp > 1.seconds().toMillis()) {
+          videoTimestampFix += videoTimestamp - tag.timestamp + 33 // todo use 1 frame time
+        }
+        tag.timestamp += videoTimestampFix
+        videoTimestamp = tag.timestamp
+      }
+      TagType.SCRIPT -> {
       }
     }
+  }
+
+  private suspend fun getTagBody(tag: FlvTag) {
+    if (dataBuf.capacity < tag.bodySize) {
+      dataBuf.resize(tag.bodySize)
+    }
+    while (dataBuf.readable < tag.bodySize) {
+      dataBuf.reset()
+      if (recvData.readable != 0) {
+        recvData.writeTo(dataBuf)
+      } else {
+        recvData.close()
+        recvData = dataChannel.receive()
+        recvData.writeTo(dataBuf)
+      }
+    }
+    tag.body = dataBuf.slice(dataBuf.readPosition, tag.bodySize, 0, tag.bodySize)
+    dataBuf.skip(tag.bodySize)
+    filePosition += tag.bodySize
+  }
+
+  private suspend fun writeTag(tag: FlvTag) {
+    val tagSize = FlvTag.TAG_HEADER_SIZE + tag.bodySize
+    if (writeBuf.writeable < tagSize) {
+      writeBuf.close()
+      writeBuf = if (tagSize > memoryPool.blockSize) {
+        HeapByteBuffer(tagSize)
+      } else {
+        memoryPool.get()
+      }
+    }
+    tag.writeTag(writeBuf)
+    tag.body!!.writeTo(writeBuf)
+    val provideBuf = writeBuf.slice(
+      writeBuf.readPosition,
+      tagSize,
+      writePosition = tagSize
+    )
+    resultChannel.send(provideBuf)
+    writeBuf.readPosition += tagSize
   }
 
   override suspend fun put(buffer: ByteBuffer) {
@@ -162,14 +187,18 @@ class JavaFlvChecker : FlvChecker {
     }
   }
 
-  data class TagData(
+  data class FlvTag(
     var prevSize: Int,
     var type: TagType,
-    var dataSize: Int,
+    var bodySize: Int,
     var timestamp: Int,
     var streamId: Int,
     var body: ByteBuffer? = null,
   ) {
+    companion object {
+      const val TAG_HEADER_SIZE = 15
+    }
+
     constructor(buf: ByteBuffer) : this(
       buf.getInt(ByteOrder.BIG_ENDIAN),
       TagType.valueOf(buf.get().toInt()),
@@ -179,14 +208,14 @@ class JavaFlvChecker : FlvChecker {
     )
 
     fun writeTag(buf: ByteBuffer) {
-      if (buf.writeable < 15) {
+      if (buf.writeable < TAG_HEADER_SIZE) {
         throw IndexOutOfBoundsException()
       }
-      buf.put(prevSize, ByteOrder.BIG_ENDIAN)
-      buf.put(type.code.toByte())
-      buf.putIntWithSize(dataSize, 3, ByteOrder.BIG_ENDIAN)
+      buf.putInt(prevSize, ByteOrder.BIG_ENDIAN)
+      buf.putByte(type.code.toByte())
+      buf.putIntWithSize(bodySize, 3, ByteOrder.BIG_ENDIAN)
       buf.putIntWithSize(timestamp, 3, ByteOrder.BIG_ENDIAN)
-      buf.put((timestamp shr 24).toByte())
+      buf.putByte((timestamp shr 24).toByte())
       buf.putIntWithSize(streamId, 3, ByteOrder.BIG_ENDIAN)
     }
   }
