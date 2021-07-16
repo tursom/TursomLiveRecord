@@ -38,16 +38,16 @@ suspend fun startRecordOnce(
   var liveSaver: FileLiveSaver? = null
   val liveProvider = BilibiliLiveProvider(roomId, dataChannel)
   liveProvider.onException = {
-    //liveProvider.finish()
-    //liveSaver?.finish()
+    liveProvider.close()
+    liveSaver?.close()
     onException(it)
   }
   try {
     liveProvider.startRecord()
     liveSaver = FileLiveSaver("$title-${dateFormat.now()}.flv", dataChannel, fileMaxSize)
   } catch (e: Exception) {
-    liveProvider.finish()
-    liveSaver?.finish()
+    liveProvider.close()
+    liveSaver?.close()
     throw e
   }
 }

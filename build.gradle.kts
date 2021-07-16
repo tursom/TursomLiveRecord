@@ -17,6 +17,7 @@ repositories {
 dependencies {
   implementation(kotlin("stdlib"))
   implementation(group = "cn.tursom", name = "ts-pool", version = "0.2")
+  implementation(group = "cn.tursom", name = "ts-socket", version = "0.2")
   implementation(group = "cn.tursom", name = "ts-coroutine", version = "0.2")
   implementation(group = "cn.tursom", name = "tursom-im-sdk", version = "1.0")
   implementation(group = "cn.tursom", name = "BiliWS", version = "1.0")
@@ -69,7 +70,7 @@ application {
   applicationName = "LiveRecord"
   mainClass.set("cn.tursom.record.LiveKt")
   applicationDefaultJvmArgs = listOf(
-    "-Xmx32m",
+    "-Xmx256m",
     "-XX:MaxHeapFreeRatio=10",
     "-XX:MinHeapFreeRatio=10"
   )

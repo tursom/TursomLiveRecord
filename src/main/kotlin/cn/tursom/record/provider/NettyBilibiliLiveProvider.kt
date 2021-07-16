@@ -11,7 +11,7 @@ class NettyBilibiliLiveProvider(
   dataChannel: Channel<ByteBuffer> = Channel(32),
   private val highQn: Boolean = false,
   onException: suspend (e: Exception) -> Unit = {},
-) : NettyLiveProvider(log, compressed, headers, dataChannel, onException) {
+) : NettyLiveProvider(log, compressed, headers, dataChannel, onException = onException) {
   suspend fun startRecord() {
     startRecord(BilibiliLiveProvider.getLiveUrl(roomId, highQn))
   }

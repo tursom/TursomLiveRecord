@@ -3,6 +3,8 @@ package cn.tursom.record.provider
 import cn.tursom.core.ShutdownHook
 import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.core.buffer.impl.NettyByteBuffer
+import cn.tursom.core.pool.HeapMemoryPool
+import cn.tursom.core.pool.MemoryPool
 import cn.tursom.log.impl.Slf4jImpl
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.CompositeByteBuf
@@ -31,7 +33,8 @@ open class NettyLiveProvider(
   val log: Boolean = false,
   val compressed: Boolean = true,
   private val headers: Map<String, String>? = null,
-  override val dataChannel: Channel<ByteBuffer> = Channel(32),
+  private val dataChannel: Channel<ByteBuffer> = Channel(32),
+  override val memoryPool: MemoryPool = HeapMemoryPool(1, 1),
   var onException: suspend (e: Exception) -> Unit = {},
 ) : LiveProvider {
   companion object : Slf4jImpl() {
@@ -217,7 +220,11 @@ open class NettyLiveProvider(
     return ch?.closeFuture()
   }
 
-  override suspend fun finish() {
+  override suspend fun read(pool: MemoryPool, timeout: Long): ByteBuffer {
+    return dataChannel.receive()
+  }
+
+  override fun close() {
     ch?.close()
     coroutineScope.cancel()
   }
