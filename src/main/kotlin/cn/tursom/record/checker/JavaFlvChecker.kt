@@ -6,6 +6,7 @@ import cn.tursom.core.buffer.impl.HeapByteBuffer
 import cn.tursom.core.buffer.putIntWithSize
 import cn.tursom.core.pool.HeapMemoryPool
 import cn.tursom.core.seconds
+import cn.tursom.core.toHexString
 import cn.tursom.log.impl.Slf4jImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -52,7 +53,7 @@ class JavaFlvChecker : FlvChecker {
       try {
         checkHead()
         while (true) {
-          val tag = getTag()
+          val tag = getTag() ?: continue
           writeTag(tag)
         }
       } catch (e: Exception) {
@@ -64,7 +65,7 @@ class JavaFlvChecker : FlvChecker {
   private suspend fun checkHead() {
     recvData = dataChannel.receive()
     recvData.writeTo(dataBuf)
-    while (dataBuf.readable < FLV_HEADER_SIZE) {
+    while (dataBuf.readable < FLV_HEADER_SIZE + 4) {
       recvData.close()
       recvData = dataChannel.receive()
       recvData.writeTo(dataBuf)
@@ -74,21 +75,30 @@ class JavaFlvChecker : FlvChecker {
       throw InvalidFlvHeaderException()
     }
 
-    dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE).writeTo(writeBuf)
-    resultChannel.send(writeBuf.slice(0, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE))
-    dataBuf.readPosition += FLV_HEADER_SIZE
-    writeBuf.readPosition += FLV_HEADER_SIZE
-    filePosition += FLV_HEADER_SIZE
+    val firstBlockSize = dataBuf.getInt(ByteOrder.BIG_ENDIAN)
+    if (firstBlockSize != 0) {
+      throw InvalidFlvHeaderException()
+    }
+
+    dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE + 4, writePosition = FLV_HEADER_SIZE + 4).writeTo(writeBuf)
+    val result = writeBuf.slice(0, FLV_HEADER_SIZE + 4, writePosition = FLV_HEADER_SIZE)
+    result.putInt(0)
+    resultChannel.send(result)
+    dataBuf.readPosition += FLV_HEADER_SIZE + 4
+    writeBuf.readPosition += FLV_HEADER_SIZE + 4
+    filePosition += FLV_HEADER_SIZE + 4
   }
 
-  private suspend fun getTag(): FlvTag {
-    val tagData = getTagHeader()
-    checkTagTimestamp(tagData)
-    getTagBody(tagData)
-    return tagData
+  private suspend fun getTag(): FlvTag? {
+    val tag = getTagHeader() ?: return null
+    if (tag.type == TagType.UNKNOWN) return null
+    checkTagTimestamp(tag)
+    logger.debug("{}({}) tag: {}", filePosition.toHexString(), filePosition, tag)
+    getTagBody(tag)
+    return tag
   }
 
-  private suspend fun getTagHeader(): FlvTag {
+  private suspend fun getTagHeader(): FlvTag? {
     while (dataBuf.readable < FlvTag.TAG_HEADER_SIZE) {
       dataBuf.reset()
       if (recvData.readable != 0) {
@@ -124,6 +134,8 @@ class JavaFlvChecker : FlvChecker {
         videoTimestamp = tag.timestamp
       }
       TagType.SCRIPT -> {
+      }
+      TagType.UNKNOWN -> {
       }
     }
   }
@@ -175,48 +187,58 @@ class JavaFlvChecker : FlvChecker {
   override suspend fun read(): ByteBuffer = resultChannel.receive()
 
   enum class TagType(val code: Int) {
-    AUDIO(0x08), VIDEO(0x09), SCRIPT(0x12);
+    AUDIO(0x08), VIDEO(0x09), SCRIPT(0x12), UNKNOWN(0);
 
     companion object {
       fun valueOf(code: Int): TagType = when (code) {
         0x08 -> AUDIO
         0x09 -> VIDEO
         0x12 -> SCRIPT
-        else -> throw IllegalArgumentException("No enum constant cn.tursom.record.checker.JavaFlvChecker.TagType.code = $code")
+        else -> {
+          // val hexString = code.toHexString()
+          // logger.warn("unknown tag type {}", hexString)
+          // throw InvalidFlvTagException(code)
+          UNKNOWN
+        }
       }
     }
   }
 
   data class FlvTag(
-    var prevSize: Int,
     var type: TagType,
     var bodySize: Int,
     var timestamp: Int,
     var streamId: Int,
     var body: ByteBuffer? = null,
+    var tagSize: Int,
   ) {
     companion object {
       const val TAG_HEADER_SIZE = 15
-    }
 
-    constructor(buf: ByteBuffer) : this(
-      buf.getInt(ByteOrder.BIG_ENDIAN),
-      TagType.valueOf(buf.get().toInt()),
-      buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN),
-      buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN) or (buf.get().toInt() shl 24) and 0x7fff_ffff,
-      buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN),
-    )
+      operator fun invoke(buf: ByteBuffer): FlvTag? {
+        val tagType = TagType.valueOf(buf.get().toInt())
+        if (tagType == TagType.UNKNOWN) return null
+        return FlvTag(
+          tagType,
+          buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN),
+          buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN) or (buf.get().toInt() shl 24) and 0x7fff_ffff,
+          buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN),
+          null,
+          buf.getInt(ByteOrder.BIG_ENDIAN),
+        )
+      }
+    }
 
     fun writeTag(buf: ByteBuffer) {
       if (buf.writeable < TAG_HEADER_SIZE) {
         throw IndexOutOfBoundsException()
       }
-      buf.putInt(prevSize, ByteOrder.BIG_ENDIAN)
       buf.putByte(type.code.toByte())
       buf.putIntWithSize(bodySize, 3, ByteOrder.BIG_ENDIAN)
       buf.putIntWithSize(timestamp, 3, ByteOrder.BIG_ENDIAN)
       buf.putByte((timestamp shr 24).toByte())
       buf.putIntWithSize(streamId, 3, ByteOrder.BIG_ENDIAN)
+      buf.putInt(bodySize + TAG_HEADER_SIZE, ByteOrder.BIG_ENDIAN)
     }
   }
 }

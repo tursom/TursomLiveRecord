@@ -15,7 +15,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 
 class BilibiliLiveProvider(
   private val roomId: Int,
-  private val dataChannel: Channel<ByteBuffer> = Channel(32),
+  val dataChannel: Channel<ByteBuffer> = Channel(32),
   private val highQn: Boolean = false,
   override val memoryPool: MemoryPool = HeapMemoryPool(256 * 1024),
   var onException: suspend (e: Exception) -> Unit = {},
