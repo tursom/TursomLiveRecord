@@ -13,8 +13,8 @@ class JavaFlvCheckerTest {
   fun test(): Unit = runBlocking {
     val pool = HeapMemoryPool(32 * 1024, 4)
 
-    val file = File("C:\\Users\\tursom\\Downloads\\盐咪yami录播-2021-07-16 02-33-20.flv").inputStream()
-    val out = File("o.flv").outputStream()
+    val file = File("E:\\Downloads\\盐咪yami录播-2021-07-16 04-24-09.flv").inputStream()
+    val out = File("E:\\Downloads\\o.flv").outputStream()
     // out.create()
 
     val flvChecker = JavaFlvChecker()
@@ -29,7 +29,8 @@ class JavaFlvCheckerTest {
       }
     }
 
-    while (true) {
+    repeat(2048) {
+      //while (true) {
       val buffer = pool.get()
       buffer.put(file)
       flvChecker.put(buffer)
