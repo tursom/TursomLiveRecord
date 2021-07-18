@@ -217,7 +217,7 @@ class JavaFlvChecker : FlvChecker {
 
         val bodySize = buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN)
         if (bodySize > 512 * 1024 || bodySize < 0) {
-          buf.readPosition -= 3
+          buf.skip(-3)
           return null
         }
 
@@ -225,7 +225,7 @@ class JavaFlvChecker : FlvChecker {
 
         val streamId = buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN)
         if (streamId != 0) {
-          buf.readPosition -= 9
+          buf.skip(-9)
           return null
         }
 
