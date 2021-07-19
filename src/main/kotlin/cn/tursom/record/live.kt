@@ -83,8 +83,12 @@ suspend fun startRecord(roomId: Int, title: String) {
         break
       } catch (e: BilibiliLiveProvider.Companion.GetLiveStreamFailedException) {
         logger.info("room {} live not started", roomId)
+        liveProvider.close()
+        liveSaver?.close()
       } catch (e: Exception) {
         logger.warn("an exception caused on reconnect to live server", e)
+        liveProvider.close()
+        liveSaver?.close()
       }
     }
   }

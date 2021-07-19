@@ -6,7 +6,6 @@ import cn.tursom.core.buffer.impl.HeapByteBuffer
 import cn.tursom.core.buffer.putIntWithSize
 import cn.tursom.core.pool.HeapMemoryPool
 import cn.tursom.core.seconds
-import cn.tursom.core.toHexString
 import cn.tursom.log.impl.Slf4jImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -30,7 +29,7 @@ class JavaFlvChecker : FlvChecker {
         false
       } else {
         buf.get() == 0x00.toByte() && buf.get() == 0x00.toByte() &&
-            buf.get() == 0x00.toByte() && buf.get() == 0x09.toByte()
+          buf.get() == 0x00.toByte() && buf.get() == 0x09.toByte()
       }
     }
   }
@@ -47,6 +46,7 @@ class JavaFlvChecker : FlvChecker {
   private var audioTimestampFix = 0
   private var filePosition = 0L
   private var recvData: ByteBuffer = HeapByteBuffer(1)
+  private var resultFrameCache: ByteBuffer? = null
 
   init {
     coroutineScope.launch {
@@ -65,7 +65,7 @@ class JavaFlvChecker : FlvChecker {
   private suspend fun checkHead() {
     recvData = dataChannel.receive()
     recvData.writeTo(dataBuf)
-    while (dataBuf.readable < FLV_HEADER_SIZE + 4) {
+    while (dataBuf.readable < FLV_HEADER_SIZE) {
       recvData.close()
       recvData = dataChannel.receive()
       recvData.writeTo(dataBuf)
@@ -75,27 +75,24 @@ class JavaFlvChecker : FlvChecker {
       throw InvalidFlvHeaderException()
     }
 
-    val firstBlockSize = dataBuf.getInt(ByteOrder.BIG_ENDIAN)
-    if (firstBlockSize != 0) {
-      throw InvalidFlvHeaderException()
-    }
-
-    dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE + 4, writePosition = FLV_HEADER_SIZE + 4).writeTo(writeBuf)
-    val result = writeBuf.slice(0, FLV_HEADER_SIZE + 4, writePosition = FLV_HEADER_SIZE)
-    result.putInt(0)
-    resultChannel.send(result)
-    dataBuf.readPosition += FLV_HEADER_SIZE + 4
-    writeBuf.readPosition += FLV_HEADER_SIZE + 4
-    filePosition += FLV_HEADER_SIZE + 4
+    dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE).writeTo(writeBuf)
+    resultChannel.send(writeBuf.slice(0, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE))
+    dataBuf.readPosition += FLV_HEADER_SIZE
+    writeBuf.readPosition += FLV_HEADER_SIZE
+    filePosition += FLV_HEADER_SIZE
   }
 
   private suspend fun getTag(): FlvTag? {
-    val tag = getTagHeader() ?: return null
-    if (tag.type == TagType.UNKNOWN) return null
-    checkTagTimestamp(tag)
-    logger.debug("{}({}) tag: {}", filePosition.toHexString(), filePosition, tag)
-    getTagBody(tag)
-    return tag
+    val tagData = getTagHeader()
+    if (tagData == null) {
+      resultFrameCache = null
+      return null
+    }
+    checkTagTimestamp(tagData)
+
+    logger.debug("get tag: {}", tagData)
+    getTagBody(tagData)
+    return tagData
   }
 
   private suspend fun getTagHeader(): FlvTag? {
@@ -115,12 +112,13 @@ class JavaFlvChecker : FlvChecker {
   }
 
   @Suppress("DuplicatedCode")
-  private fun checkTagTimestamp(tag: FlvTag) {
+  private fun checkTagTimestamp(tag: FlvTag?) {
+    tag ?: return
     when (tag.type) {
       TagType.AUDIO -> {
         val fixedTimestamp = tag.timestamp + audioTimestampFix
         if (fixedTimestamp < audioTimestamp || fixedTimestamp - audioTimestamp > 1.seconds().toMillis()) {
-          audioTimestampFix += audioTimestamp - tag.timestamp + 33 // todo use 1 frame time
+          audioTimestampFix += audioTimestamp - fixedTimestamp + 33 // todo use 1 frame time
         }
         tag.timestamp += audioTimestampFix
         audioTimestamp = tag.timestamp
@@ -128,14 +126,12 @@ class JavaFlvChecker : FlvChecker {
       TagType.VIDEO -> {
         val fixedTimestamp = tag.timestamp + videoTimestampFix
         if (fixedTimestamp < videoTimestamp || fixedTimestamp - videoTimestamp > 1.seconds().toMillis()) {
-          videoTimestampFix += videoTimestamp - tag.timestamp + 33 // todo use 1 frame time
+          videoTimestampFix += videoTimestamp - fixedTimestamp + 33 // todo use 1 frame time
         }
         tag.timestamp += videoTimestampFix
         videoTimestamp = tag.timestamp
       }
       TagType.SCRIPT -> {
-      }
-      TagType.UNKNOWN -> {
       }
     }
   }
@@ -176,7 +172,10 @@ class JavaFlvChecker : FlvChecker {
       tagSize,
       writePosition = tagSize
     )
-    resultChannel.send(provideBuf)
+    if (resultFrameCache != null) {
+      resultChannel.send(resultFrameCache!!)
+    }
+    resultFrameCache = provideBuf
     writeBuf.readPosition += tagSize
   }
 
@@ -187,44 +186,55 @@ class JavaFlvChecker : FlvChecker {
   override suspend fun read(): ByteBuffer = resultChannel.receive()
 
   enum class TagType(val code: Int) {
-    AUDIO(0x08), VIDEO(0x09), SCRIPT(0x12), UNKNOWN(0);
+    AUDIO(0x08), VIDEO(0x09), SCRIPT(0x12);
 
     companion object {
-      fun valueOf(code: Int): TagType = when (code) {
+      fun valueOf(code: Int): TagType? = when (code) {
         0x08 -> AUDIO
         0x09 -> VIDEO
         0x12 -> SCRIPT
-        else -> {
-          // val hexString = code.toHexString()
-          // logger.warn("unknown tag type {}", hexString)
-          // throw InvalidFlvTagException(code)
-          UNKNOWN
-        }
+        else -> null
       }
     }
   }
 
   data class FlvTag(
+    var prevSize: Int,
     var type: TagType,
     var bodySize: Int,
     var timestamp: Int,
     var streamId: Int,
     var body: ByteBuffer? = null,
-    var tagSize: Int,
   ) {
     companion object {
       const val TAG_HEADER_SIZE = 15
 
       operator fun invoke(buf: ByteBuffer): FlvTag? {
-        val tagType = TagType.valueOf(buf.get().toInt())
-        if (tagType == TagType.UNKNOWN) return null
+        val prevSize = buf.getInt(ByteOrder.BIG_ENDIAN)
+
+        val type = buf.get().toInt()
+        val tagType = TagType.valueOf(type) ?: return null
+
+        val bodySize = buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN)
+        if (bodySize > 512 * 1024 || bodySize < 0) {
+          buf.skip(-3)
+          return null
+        }
+
+        val timestamp = buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN) or (buf.get().toInt() shl 24) and 0x7fff_ffff
+
+        val streamId = buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN)
+        if (streamId != 0) {
+          buf.skip(-9)
+          return null
+        }
+
         return FlvTag(
+          prevSize,
           tagType,
-          buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN),
-          buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN) or (buf.get().toInt() shl 24) and 0x7fff_ffff,
-          buf.getIntWithSize(3, ByteOrder.BIG_ENDIAN),
-          null,
-          buf.getInt(ByteOrder.BIG_ENDIAN),
+          bodySize,
+          timestamp,
+          streamId
         )
       }
     }
@@ -233,12 +243,12 @@ class JavaFlvChecker : FlvChecker {
       if (buf.writeable < TAG_HEADER_SIZE) {
         throw IndexOutOfBoundsException()
       }
+      buf.putInt(prevSize, ByteOrder.BIG_ENDIAN)
       buf.putByte(type.code.toByte())
       buf.putIntWithSize(bodySize, 3, ByteOrder.BIG_ENDIAN)
       buf.putIntWithSize(timestamp, 3, ByteOrder.BIG_ENDIAN)
       buf.putByte((timestamp shr 24).toByte())
       buf.putIntWithSize(streamId, 3, ByteOrder.BIG_ENDIAN)
-      buf.putInt(bodySize + TAG_HEADER_SIZE, ByteOrder.BIG_ENDIAN)
     }
   }
 }
