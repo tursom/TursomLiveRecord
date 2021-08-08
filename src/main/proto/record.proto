@@ -8,22 +8,22 @@ option java_outer_classname = "Record";
 
 message RecordMsg {
   oneof content {
-    DanmuRecord danmu      = 1;
+    DanmuRecord danmu = 1;
     LiveStatus  liveStatus = 2;
 
   }
 }
 
 message DanmuRecord {
-  int32                     roomId     = 1;
-  cn.tursom.danmu.DanmuInfo danmu      = 2;
+  int32                     roomId = 1;
+  cn.tursom.danmu.DanmuInfo danmu = 2;
   UnknownCmd                unknownCmd = 3;
 }
 
 message LiveStatus {
   enum LiveStatusEnum {
-    NONE      = 0;
-    LIVE      = 1;
+    NONE = 0;
+    LIVE = 1;
     PREPARING = 2;
   }
 
@@ -32,6 +32,6 @@ message LiveStatus {
 }
 
 message UnknownCmd {
-  string cmd        = 1;
+  string cmd = 1;
   string originData = 2;
 }

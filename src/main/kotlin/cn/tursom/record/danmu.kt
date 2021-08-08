@@ -1,14 +1,14 @@
 package cn.tursom.record
 
-import cn.tursom.core.ShutdownHook
-import cn.tursom.core.final
-import cn.tursom.core.toByteArray
-import cn.tursom.core.wait
+import cn.tursom.core.*
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.ws.BiliWSClient
 import com.google.protobuf.TextFormat
-import kotlinx.coroutines.*
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.OutputStream
 import java.nio.ByteOrder
@@ -23,6 +23,7 @@ fun setDefaultTextFormatPrinter(printer: TextFormat.Printer) {
   defaultPrinter.set(null, printer)
 }
 
+@OptIn(DelicateCoroutinesApi::class)
 @Suppress("BlockingMethodInNonBlockingContext")
 suspend fun recordDanmu(
   biliWSClient: BiliWSClient,
@@ -65,7 +66,7 @@ suspend fun recordDanmu(
 suspend fun recordDanmu(
   roomId: Int,
   file: String,
-) {
+): BiliWSClient {
   val biliWSClient = BiliWSClient(roomId)
   val os = File(file).outputStream().buffered()
   ShutdownHook.addHook {
@@ -77,12 +78,36 @@ suspend fun recordDanmu(
 
   println("connect")
   biliWSClient.connect()
-  biliWSClient.wait { }
+  return biliWSClient
 }
+
+
+private val recordRooms = listOf(
+  1138 to "乌拉录播",
+  23018529 to "盐咪yami录播",
+  917818 to "tursom录播",
+  10413051 to "宇佐紀ノノ_usagi 录播",
+  14197798 to "安晴Ankii 录播",
+  4767523 to "沙月录播",
+  1346192 to "潮留芥末录播",
+  1016818 to "猫屋敷梨梨录播",
+  292397 to "巫贼录播",
+  7906153 to "喵枫にゃぁ 录播",
+  22603245 to "塔菲录播",
+  5555734 to "ArkNights",
+)
+
+private val dateFormat = ThreadLocalSimpleDateFormat("YYYY-MM-dd HH")
 
 @Suppress("BlockingMethodInNonBlockingContext")
 @OptIn(ExperimentalUnsignedTypes::class, DelicateCoroutinesApi::class)
 suspend fun main() {
   setDefaultTextFormatPrinter(TextFormat.printer().escapingNonAscii(false))
-  recordDanmu(5555734, "ArkNights_210715.rec")
+
+  recordRooms.forEach { (roomId, file) ->
+    recordDanmu(roomId, "$file.rec")
+  }
+  while (true) {
+    Thread.sleep(1.seconds().toMillis())
+  }
 }

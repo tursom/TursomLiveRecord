@@ -1,7 +1,6 @@
 package cn.tursom.record
 
 import cn.tursom.core.ThreadLocalSimpleDateFormat
-import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.core.coroutine.bufferTicker
 import cn.tursom.core.seconds
 import cn.tursom.log.impl.Slf4jImpl
@@ -9,7 +8,6 @@ import cn.tursom.record.provider.BilibiliLiveProvider
 import cn.tursom.record.saver.FfmpegLiveSaver
 import cn.tursom.record.saver.FileLiveSaver
 import cn.tursom.record.saver.LiveSaver
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -25,16 +23,17 @@ private const val fileMaxSize = 4L * 1024 * 1024 * 1024
 private val connectTicker = bufferTicker(5.seconds().toMillis(), 1)
 
 private val recordRooms = listOf(
-  1138 to "乌拉录播",
-  23018529 to "盐咪yami录播",
-  917818 to "tursom录播",
-  10413051 to "宇佐紀ノノ_usagi 录播",
-  14197798 to "安晴Ankii 录播",
-  4767523 to "沙月录播",
-  1346192 to "潮留芥末录播",
-  1016818 to "猫屋敷梨梨录播",
-  292397 to "巫贼录播",
-  7906153 to "喵枫にゃぁ 录播",
+  // 1138 to "乌拉录播",
+  // 23018529 to "盐咪yami录播",
+  // 917818 to "tursom录播",
+  // 10413051 to "宇佐紀ノノ_usagi 录播",
+  // 14197798 to "安晴Ankii 录播",
+  // 4767523 to "沙月录播",
+  // 1346192 to "潮留芥末录播",
+  // 1016818 to "猫屋敷梨梨录播",
+  // 292397 to "巫贼录播",
+  // 7906153 to "喵枫にゃぁ 录播",
+  22603245 to "塔菲",
   // 139 to  "测试录播",
 )
 

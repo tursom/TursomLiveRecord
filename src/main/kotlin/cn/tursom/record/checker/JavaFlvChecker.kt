@@ -17,6 +17,8 @@ class JavaFlvChecker : FlvChecker {
   companion object : Slf4jImpl() {
     const val FLV_HEADER_SIZE = 9
 
+    private val memoryPool = HeapMemoryPool(32 * 1024, 16)
+
     fun isValidFlvHeader(buf: ByteBuffer): Boolean {
       if (buf.readable < FLV_HEADER_SIZE) return false
       if (buf.get() != 0x46.toByte() || buf.get() != 0x4C.toByte() || buf.get() != 0x56.toByte()) {
@@ -29,14 +31,13 @@ class JavaFlvChecker : FlvChecker {
         false
       } else {
         buf.get() == 0x00.toByte() && buf.get() == 0x00.toByte() &&
-          buf.get() == 0x00.toByte() && buf.get() == 0x09.toByte()
+            buf.get() == 0x00.toByte() && buf.get() == 0x09.toByte()
       }
     }
   }
 
   private val dataChannel = Channel<ByteBuffer>()
   private val resultChannel = Channel<ByteBuffer>(16)
-  private val memoryPool = HeapMemoryPool(32 * 1024, 16)
   private var writeBuf = memoryPool.get()
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
   private val dataBuf = HeapByteBuffer(32 * 1024)

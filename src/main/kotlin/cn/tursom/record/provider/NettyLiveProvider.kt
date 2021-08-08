@@ -34,10 +34,10 @@ open class NettyLiveProvider(
   val compressed: Boolean = true,
   private val headers: Map<String, String>? = null,
   private val dataChannel: Channel<ByteBuffer> = Channel(32),
-  override val memoryPool: MemoryPool = HeapMemoryPool(1, 1),
   var onException: suspend (e: Exception) -> Unit = {},
 ) : LiveProvider {
   companion object : Slf4jImpl() {
+    private val defaultMemoryPool: MemoryPool = HeapMemoryPool(1, 1)
     private val threadId = AtomicInteger()
     private val group: EventLoopGroup = NioEventLoopGroup(0, ThreadFactory {
       val thread = Thread(it, "WebSocketClient-${threadId.incrementAndGet()}")
@@ -110,6 +110,8 @@ open class NettyLiveProvider(
       }
     }
   }
+
+  override val memoryPool: MemoryPool = defaultMemoryPool
 
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
 

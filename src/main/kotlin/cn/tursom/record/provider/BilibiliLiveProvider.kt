@@ -17,11 +17,13 @@ class BilibiliLiveProvider(
   private val roomId: Int,
   val dataChannel: Channel<ByteBuffer> = Channel(32),
   private val highQn: Boolean = false,
-  override val memoryPool: MemoryPool = HeapMemoryPool(256 * 1024),
+  override val memoryPool: MemoryPool = defaultMemoryPool,
   var onException: suspend (e: Exception) -> Unit = {},
 ) : LiveProvider {
   companion object : Slf4jImpl() {
     object GetLiveStreamFailedException : Exception("get live stream failed")
+
+    private val defaultMemoryPool: MemoryPool = HeapMemoryPool(256 * 1024)
 
     private suspend fun getLiveJson(roomId: Int, qn: String): BiliLiveUrl {
       val url = "https://api.live.bilibili.com/room/v1/Room/playUrl?cid=$roomId&quality=$qn&platform=web"

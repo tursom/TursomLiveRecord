@@ -43,6 +43,8 @@ class FfmpegLiveSaver(
 
   @Suppress("unused", "MemberVisibilityCanBePrivate")
   companion object : Slf4jImpl() {
+    private val bufferPool = HeapMemoryPool(256 * 1024, 8)
+
     const val yes = "-y"
 
     val s360p = scale("640:360")
@@ -85,7 +87,6 @@ class FfmpegLiveSaver(
   private val inputStream = process.inputStream
   private val outputStream = process.outputStream
   private val coroutineScope = CoroutineScope(EmptyCoroutineContext)
-  private val bufferPool = HeapMemoryPool(256 * 1024, 8)
 
   init {
     if (logger.debugEnabled) coroutineScope.launch(Dispatchers.IO) {
