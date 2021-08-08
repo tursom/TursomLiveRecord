@@ -3,12 +3,12 @@ package cn.tursom.record
 import cn.tursom.core.ShutdownHook
 import cn.tursom.core.final
 import cn.tursom.core.toByteArray
+import cn.tursom.core.wait
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.ws.BiliWSClient
 import com.google.protobuf.TextFormat
-import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.OutputStream
 import java.nio.ByteOrder
@@ -49,13 +49,15 @@ suspend fun recordDanmu(
     }
   }
 
-  os.use {
-    while (true) {
-      val danmuInfo = danmuChannel.receive()
-      val bytes = danmuInfo.toByteArray()
-      os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
-      os.write(bytes)
-      os.flush()
+  GlobalScope.launch {
+    os.use {
+      while (true) {
+        val danmuInfo = danmuChannel.receive()
+        val bytes = danmuInfo.toByteArray()
+        os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
+        os.write(bytes)
+        os.flush()
+      }
     }
   }
 }
@@ -73,12 +75,14 @@ suspend fun recordDanmu(
 
   recordDanmu(biliWSClient, os)
 
+  println("connect")
   biliWSClient.connect()
+  biliWSClient.wait { }
 }
 
 @Suppress("BlockingMethodInNonBlockingContext")
 @OptIn(ExperimentalUnsignedTypes::class, DelicateCoroutinesApi::class)
 suspend fun main() {
   setDefaultTextFormatPrinter(TextFormat.printer().escapingNonAscii(false))
-  recordDanmu(22340341, "danmu.rec")
+  recordDanmu(5555734, "ArkNights_210715.rec")
 }

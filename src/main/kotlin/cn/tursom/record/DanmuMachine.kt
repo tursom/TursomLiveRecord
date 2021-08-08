@@ -14,7 +14,7 @@ suspend fun main() {
 
   val wsClient = BiliWSClient(roomId)
   wsClient.addDanmuListener {
-    printDanmu(it.toProtobuf())
+    //printDanmu(it.toProtobuf())
   }
 
   wsClient.connect()

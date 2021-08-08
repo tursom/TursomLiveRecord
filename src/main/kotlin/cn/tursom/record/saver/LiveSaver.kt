@@ -8,7 +8,7 @@ interface LiveSaver : ChannelWriter<ByteBuffer> {
   override suspend fun write(buffer: ByteBuffer)
 
   override suspend fun write(vararg buffer: ByteBuffer) {
-    super.write(*buffer)
+    super.write(value = buffer)
   }
 
   override suspend fun write(buffer: Collection<ByteBuffer>) {

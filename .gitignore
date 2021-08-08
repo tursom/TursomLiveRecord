@@ -4,6 +4,6 @@
 #gradlew
 #gradlew.bat
 #gradle.properties
-src/main/java/cn/tursom/record
+#src/main/java/cn/tursom/record
 build
 record
