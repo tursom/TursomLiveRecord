@@ -10,17 +10,32 @@ group = "cn.tursom"
 version = "1.0"
 
 repositories {
-  mavenLocal()
+  // mavenLocal()
   mavenCentral()
+  maven {
+    url = uri("https://nvm.tursom.cn/repository/maven-public/")
+    // url = uri("https://maven.pkg.github.com/tursom/TursomServer")
+  }
+}
+
+configurations {
+  compileOnly {
+    extendsFrom(configurations.annotationProcessor.get())
+  }
+  all {
+    resolutionStrategy.cacheChangingModulesFor(0, TimeUnit.SECONDS)
+    resolutionStrategy.cacheDynamicVersionsFor(0, TimeUnit.SECONDS)
+  }
 }
 
 dependencies {
   implementation(kotlin("stdlib"))
-  implementation(group = "cn.tursom", name = "ts-pool", version = "0.2")
-  implementation(group = "cn.tursom", name = "ts-socket", version = "0.2")
-  implementation(group = "cn.tursom", name = "ts-coroutine", version = "0.2")
-  implementation(group = "cn.tursom", name = "tursom-im-sdk", version = "1.0")
-  implementation(group = "cn.tursom", name = "BiliWS", version = "1.0")
+  val tursomServerVersion = "1.0-SNAPSHOT"
+  implementation(group = "cn.tursom", name = "ts-pool", version = tursomServerVersion)
+  implementation(group = "cn.tursom", name = "ts-socket", version = tursomServerVersion)
+  implementation(group = "cn.tursom", name = "ts-coroutine", version = tursomServerVersion)
+  implementation(group = "cn.tursom", name = "tursom-im-sdk", version = tursomServerVersion)
+  implementation(group = "cn.tursom", name = "BiliWS", version = tursomServerVersion)
 
   implementation(group = "io.netty", name = "netty-tcnative-boringssl-static", version = "2.0.39.Final")
   //implementation(group = "io.netty", name = "netty-all", version = "4.1.65.Final")
@@ -56,6 +71,19 @@ protobuf {
   }
 }
 
+// skip test
+if (project.gradle.startParameter.taskNames.firstOrNull { taskName ->
+    ":test" in taskName
+  } == null) {
+  tasks {
+    test { enabled = false }
+    testClasses { enabled = false }
+    compileTestJava { enabled = false }
+    compileTestKotlin { enabled = false }
+    processTestResources { enabled = false }
+  }
+}
+
 application {
   applicationName = "DanmuMachine"
   mainClass.set("cn.tursom.record.DanmuMachineKt")
@@ -85,3 +113,9 @@ application {
 //    "-XX:MinHeapFreeRatio=10"
 //  )
 //}
+
+// dependencyManagement {
+//   resolutionStrategy {
+//     cacheChangingModulesFor(0, TimeUnit.SECONDS)
+//   }
+// }
