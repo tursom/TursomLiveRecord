@@ -1,6 +1,7 @@
 package cn.tursom.record.checker
 
 import cn.tursom.core.pool.HeapMemoryPool
+import cn.tursom.core.reflect.getType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -9,6 +10,18 @@ import java.io.File
 
 
 class JavaFlvCheckerTest {
+  private var f: Int = 1
+
+  @Test
+  fun testNothing() {
+    println(f.javaClass)
+    println(getType<Int?>())
+
+    val list: List<String> = intArrayOf(1, 2, 3).map {
+      it.toString()
+    }
+  }
+
   @Test
   fun test(): Unit = runBlocking {
     val pool = HeapMemoryPool(32 * 1024, 4)

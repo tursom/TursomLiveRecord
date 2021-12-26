@@ -72,7 +72,7 @@
         <!--<root level="debug">-->
         <!--<appender-ref ref="FILE"/>-->
         <appender-ref ref="ERROR"/>
-        <appender-ref ref="ASYNC"/>
+        <!--<appender-ref ref="ASYNC"/>-->
         <!--<appender-ref ref="LOKI"/>-->
     </root>
     <!--<logger name="com" level="info"/>-->

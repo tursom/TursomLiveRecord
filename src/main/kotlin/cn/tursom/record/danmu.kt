@@ -12,6 +12,7 @@ import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.OutputStream
 import java.nio.ByteOrder
+import java.util.zip.GZIPOutputStream
 
 private val logger = Slf4jImpl.getLogger()
 private val roomIdList = intArrayOf(22340341, 1138, 23018529, 917818)
@@ -49,11 +50,16 @@ suspend fun recordDanmu(
         .build())
     }
   }
+  biliWSClient.addCmdListener("PREPARING") {
+    danmuChannel.close()
+  }
 
   GlobalScope.launch {
     os.use {
       while (true) {
         val danmuInfo = danmuChannel.receive()
+
+        println("${danmuInfo.danmu.danmu.userInfo.nickname}: ${danmuInfo.danmu.danmu.danmu}")
         val bytes = danmuInfo.toByteArray()
         os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
         os.write(bytes)
@@ -63,26 +69,41 @@ suspend fun recordDanmu(
   }
 }
 
-suspend fun recordDanmu(
-  roomId: Int,
-  file: String,
-): BiliWSClient {
-  val biliWSClient = BiliWSClient(roomId)
-  val os = File(file).outputStream().buffered()
+@OptIn(DelicateCoroutinesApi::class)
+private fun startDanmuRecord(
+  biliWSClient: BiliWSClient,
+  out: () -> OutputStream,
+) {
+  val os = GZIPOutputStream(out())
   ShutdownHook.addHook {
     os.flush()
     os.close()
   }
 
-  recordDanmu(biliWSClient, os)
+  GlobalScope.launch {
+    recordDanmu(biliWSClient, os)
+  }
+}
 
-  println("connect")
+suspend fun recordDanmu(
+  roomId: Int,
+  out: () -> OutputStream,
+): BiliWSClient {
+  val biliWSClient = BiliWSClient(roomId)
+  biliWSClient.addLivingListener {
+    startDanmuRecord(biliWSClient, out)
+  }
+  if (biliWSClient.living) {
+    startDanmuRecord(biliWSClient, out)
+  }
+
+  println("connect $roomId ${biliWSClient.userInfo.info.uname}")
   biliWSClient.connect()
   return biliWSClient
 }
 
 
-private val recordRooms = listOf(
+val danmuRecordRooms = listOf(
   1138 to "乌拉录播",
   23018529 to "盐咪yami录播",
   917818 to "tursom录播",
@@ -95,6 +116,8 @@ private val recordRooms = listOf(
   7906153 to "喵枫にゃぁ 录播",
   22603245 to "塔菲录播",
   5555734 to "ArkNights",
+  367966 to "小触",
+  917818 to "tursom",
 )
 
 private val dateFormat = ThreadLocalSimpleDateFormat("YYYY-MM-dd HH")
@@ -104,8 +127,8 @@ private val dateFormat = ThreadLocalSimpleDateFormat("YYYY-MM-dd HH")
 suspend fun main() {
   setDefaultTextFormatPrinter(TextFormat.printer().escapingNonAscii(false))
 
-  recordRooms.forEach { (roomId, file) ->
-    recordDanmu(roomId, "$file.rec")
+  danmuRecordRooms.forEach { (roomId, file) ->
+    recordDanmu(roomId) { File("$file-${dateFormat.now()}.rec").outputStream() }
   }
   while (true) {
     Thread.sleep(1.seconds().toMillis())

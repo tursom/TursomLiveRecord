@@ -5,8 +5,8 @@ import cn.tursom.core.buffer.impl.PooledByteBuffer
 import cn.tursom.core.fromJson
 import cn.tursom.core.pool.HeapMemoryPool
 import cn.tursom.core.pool.MemoryPool
+import cn.tursom.http.client.AsyncHttpRequest
 import cn.tursom.log.impl.Slf4jImpl
-import cn.tursom.utils.AsyncHttpRequest
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -72,7 +72,7 @@ class BilibiliLiveProvider(
       throw GetLiveStreamFailedException
     }
     //response.body()!!.source().buffer.
-    val inputStream = response.body()!!.source().inputStream()
+    val inputStream = response.body!!.source().inputStream()
     //println(inputStream.javaClass)
     this.inputStream = inputStream
 
