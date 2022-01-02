@@ -10,13 +10,19 @@ message RecordMsg {
   oneof content {
     DanmuRecord danmu = 1;
     LiveStatus  liveStatus = 2;
-
+    GiftRecord  gift = 3;
   }
 }
 
 message DanmuRecord {
   int32                     roomId = 1;
   cn.tursom.danmu.DanmuInfo danmu = 2;
+  UnknownCmd                unknownCmd = 3;
+}
+
+message GiftRecord {
+  int32                     roomId = 1;
+  cn.tursom.danmu.Gift      gift = 2;
   UnknownCmd                unknownCmd = 3;
 }
 

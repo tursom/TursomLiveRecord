@@ -3,6 +3,7 @@ package cn.tursom.record
 import cn.tursom.core.*
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.ws.BiliWSClient
+import cn.tursom.ws.CmdEnum
 import com.google.protobuf.TextFormat
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -28,7 +29,7 @@ fun setDefaultTextFormatPrinter(printer: TextFormat.Printer) {
 @Suppress("BlockingMethodInNonBlockingContext")
 suspend fun recordDanmu(
   biliWSClient: BiliWSClient,
-  os: OutputStream,
+  os: () -> OutputStream,
 ) {
   val danmuChannel = Channel<Record.RecordMsg>(64)
   biliWSClient.addDanmuListener {
@@ -37,6 +38,15 @@ suspend fun recordDanmu(
         .setDanmu(Record.DanmuRecord.newBuilder()
           .setRoomId(biliWSClient.roomId)
           .setDanmu(it.toProtobuf()))
+        .build())
+    }
+  }
+  biliWSClient.addGiftListener {
+    runBlocking {
+      danmuChannel.send(Record.RecordMsg.newBuilder()
+        .setGift(Record.GiftRecord.newBuilder()
+          .setRoomId(biliWSClient.roomId)
+          .setGift(it.toProto()))
         .build())
     }
   }
@@ -50,12 +60,9 @@ suspend fun recordDanmu(
         .build())
     }
   }
-  biliWSClient.addCmdListener("PREPARING") {
-    danmuChannel.close()
-  }
 
   GlobalScope.launch {
-    os.use {
+    os().use { os ->
       while (true) {
         val danmuInfo = danmuChannel.receive()
 
@@ -74,14 +81,17 @@ private fun startDanmuRecord(
   biliWSClient: BiliWSClient,
   out: () -> OutputStream,
 ) {
-  val os = GZIPOutputStream(out())
+  var os = GZIPOutputStream(out())
   ShutdownHook.addHook {
     os.flush()
     os.close()
   }
-
+  biliWSClient.addCmdListener(CmdEnum.PREPARING) {
+    os.close()
+    os = GZIPOutputStream(out())
+  }
   GlobalScope.launch {
-    recordDanmu(biliWSClient, os)
+    recordDanmu(biliWSClient) { os }
   }
 }
 
@@ -90,13 +100,7 @@ suspend fun recordDanmu(
   out: () -> OutputStream,
 ): BiliWSClient {
   val biliWSClient = BiliWSClient(roomId)
-  biliWSClient.addLivingListener {
-    startDanmuRecord(biliWSClient, out)
-  }
-  if (biliWSClient.living) {
-    startDanmuRecord(biliWSClient, out)
-  }
-
+  startDanmuRecord(biliWSClient, out)
   println("connect $roomId ${biliWSClient.userInfo.info.uname}")
   biliWSClient.connect()
   return biliWSClient
