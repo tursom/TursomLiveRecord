@@ -1,7 +1,6 @@
 .gradle
 .idea
-!src/**
-!src/*
+!src/**/record/**
 build
-record
+./record
 danmu.yml

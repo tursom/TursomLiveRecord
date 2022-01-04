@@ -2,6 +2,7 @@ package cn.tursom.record
 
 import cn.tursom.core.*
 import cn.tursom.log.impl.Slf4jImpl
+import cn.tursom.record.util.OnCloseCallbackOutputStream
 import cn.tursom.ws.BiliWSClient
 import cn.tursom.ws.CmdEnum
 import com.google.protobuf.TextFormat
@@ -61,16 +62,52 @@ suspend fun recordDanmu(
     }
   }
 
-  GlobalScope.launch {
-    os().use { os ->
-      while (true) {
-        val danmuInfo = danmuChannel.receive()
+  biliWSClient.addCmdListener(CmdEnum.PREPARING) {
+    runBlocking {
+      danmuChannel.send(Record.RecordMsg.newBuilder()
+        .setLiveStatus(Record.LiveStatus.newBuilder()
+          .setRoomId(biliWSClient.roomId)
+          .setStatus(Record.LiveStatus.LiveStatusEnum.PREPARING))
+        .build())
+    }
+  }
 
-        println("${danmuInfo.danmu.danmu.userInfo.nickname}: ${danmuInfo.danmu.danmu.danmu}")
-        val bytes = danmuInfo.toByteArray()
-        os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
-        os.write(bytes)
-        os.flush()
+  GlobalScope.launch {
+    var danmuInfo: Record.RecordMsg? = null
+    while (true) {
+      try {
+        os().use { os ->
+          while (true) {
+            if (danmuInfo == null) {
+              danmuInfo = danmuChannel.receive()
+            }
+            val bytes = danmuInfo!!.let { danmuInfo ->
+              when (danmuInfo.contentCase) {
+                Record.RecordMsg.ContentCase.DANMU -> println("${biliWSClient.userInfo.info.uname}: ${danmuInfo.danmu.danmu.userInfo.nickname}: ${danmuInfo.danmu.danmu.danmu}")
+                Record.RecordMsg.ContentCase.LIVESTATUS -> println("${biliWSClient.userInfo.info.uname}: ${
+                  when (danmuInfo.liveStatus.status) {
+                    Record.LiveStatus.LiveStatusEnum.NONE -> "未知直播状态"
+                    Record.LiveStatus.LiveStatusEnum.LIVE -> "开播"
+                    Record.LiveStatus.LiveStatusEnum.PREPARING -> "下播"
+                    Record.LiveStatus.LiveStatusEnum.UNRECOGNIZED -> "未知直播状态"
+                    null -> "未知直播状态"
+                  }
+                }")
+                Record.RecordMsg.ContentCase.GIFT -> println("${biliWSClient.userInfo.info.uname}: ${danmuInfo.gift.gift.uname}: ${danmuInfo.gift.gift.giftName} x ${danmuInfo.gift.gift.num}")
+                Record.RecordMsg.ContentCase.CONTENT_NOT_SET -> Unit
+                null -> Unit
+              }
+
+              danmuInfo.toByteArray()
+            }
+            os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
+            os.write(bytes)
+            os.flush()
+            danmuInfo = null
+          }
+        }
+      } catch (e: Throwable) {
+        logger.error("an exception caused on save danmu", e)
       }
     }
   }
@@ -81,17 +118,23 @@ private fun startDanmuRecord(
   biliWSClient: BiliWSClient,
   out: () -> OutputStream,
 ) {
-  var os = GZIPOutputStream(out())
+  var os: OutputStream
+  os = OnCloseCallbackOutputStream(GZIPOutputStream(out()), object : () -> Unit {
+    override fun invoke() {
+      os = OnCloseCallbackOutputStream(GZIPOutputStream(out()), this)
+    }
+  })
   ShutdownHook.addHook {
     os.flush()
     os.close()
   }
   biliWSClient.addCmdListener(CmdEnum.PREPARING) {
     os.close()
-    os = GZIPOutputStream(out())
   }
   GlobalScope.launch {
-    recordDanmu(biliWSClient) { os }
+    recordDanmu(biliWSClient) {
+      os
+    }
   }
 }
 

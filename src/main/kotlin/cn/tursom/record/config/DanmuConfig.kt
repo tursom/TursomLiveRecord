@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 data class DanmuConfig(
   val mail: MailConfig,
   val room: List<RoomConfig>,
+  val im: ImConfig?,
 )
 
 data class MailConfig(
@@ -28,10 +29,15 @@ data class Imap(
 
 data class MailTarget(
   val mail: String,
-  val roomList: List<String>?,
+  val room: List<String>?,
 )
 
 data class RoomConfig(
   val roomId: Int,
   val liver: String,
+)
+
+data class ImConfig(
+  val server: String,
+  val token: String,
 )

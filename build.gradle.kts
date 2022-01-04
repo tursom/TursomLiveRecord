@@ -10,11 +10,8 @@ group = "cn.tursom"
 version = "1.0"
 
 repositories {
-  // mavenLocal()
-  // mavenCentral()
   maven {
     url = uri("https://nvm.tursom.cn/repository/maven-public/")
-    // url = uri("https://maven.pkg.github.com/tursom/TursomServer")
   }
 }
 
@@ -37,9 +34,12 @@ dependencies {
   implementation(group = "cn.tursom", name = "ts-coroutine", version = tursomServerVersion)
   implementation(group = "cn.tursom", name = "ts-yaml", version = tursomServerVersion)
   implementation(group = "cn.tursom", name = "ts-mail", version = tursomServerVersion)
+  implementation(group = "cn.tursom", name = "ts-ktorm", version = tursomServerVersion)
   implementation(group = "cn.tursom", name = "tursom-im-sdk", version = tursomServerVersion)
   implementation(group = "cn.tursom", name = "BiliWS", version = tursomServerVersion)
 
+  implementation(group = "org.ktorm", name = "ktorm-support-sqlite", version = "3.4.1")
+  implementation(group = "org.xerial", name = "sqlite-jdbc", version = "3.36.0.3")
   implementation(group = "com.squareup.okhttp3", name = "okhttp", version = "4.9.3")
   implementation(group = "io.netty", name = "netty-tcnative-boringssl-static", version = "2.0.46.Final")
   //implementation(group = "io.netty", name = "netty-all", version = "4.1.65.Final")
