@@ -36,6 +36,7 @@ suspend fun recordDanmu(
   biliWSClient.addDanmuListener {
     runBlocking {
       danmuChannel.send(Record.RecordMsg.newBuilder()
+        .setTime(System.currentTimeMillis())
         .setDanmu(Record.DanmuRecord.newBuilder()
           .setRoomId(biliWSClient.roomId)
           .setDanmu(it.toProtobuf()))
@@ -45,6 +46,7 @@ suspend fun recordDanmu(
   biliWSClient.addGiftListener {
     runBlocking {
       danmuChannel.send(Record.RecordMsg.newBuilder()
+        .setTime(System.currentTimeMillis())
         .setGift(Record.GiftRecord.newBuilder()
           .setRoomId(biliWSClient.roomId)
           .setGift(it.toProto()))
@@ -55,6 +57,7 @@ suspend fun recordDanmu(
   biliWSClient.addLivingListener {
     runBlocking {
       danmuChannel.send(Record.RecordMsg.newBuilder()
+        .setTime(System.currentTimeMillis())
         .setLiveStatus(Record.LiveStatus.newBuilder()
           .setRoomId(biliWSClient.roomId)
           .setStatus(Record.LiveStatus.LiveStatusEnum.LIVE))

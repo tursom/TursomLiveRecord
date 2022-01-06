@@ -7,11 +7,19 @@ package cn.tursom.record;
 option java_outer_classname = "Record";
 
 message RecordMsg {
+  uint64 time = 4;
   oneof content {
     DanmuRecord danmu = 1;
     LiveStatus  liveStatus = 2;
     GiftRecord  gift = 3;
+    UnknownCmd  unknownCmd = 5;
+    RecordMetadata metadata = 6;
   }
+}
+
+message RecordMetadata {
+  int32 version = 1;
+  bool checkSum = 2;
 }
 
 message DanmuRecord {

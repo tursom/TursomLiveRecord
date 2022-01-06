@@ -40,4 +40,5 @@ data class RoomConfig(
 data class ImConfig(
   val server: String,
   val token: String,
+  val channel: Int?,
 )
