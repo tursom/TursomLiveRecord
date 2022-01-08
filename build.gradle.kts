@@ -44,6 +44,7 @@ dependencies {
   implementation(group = "io.netty", name = "netty-tcnative-boringssl-static", version = "2.0.46.Final")
   //implementation(group = "io.netty", name = "netty-all", version = "4.1.65.Final")
   //implementation(group = "io.projectreactor.netty", name = "reactor-netty-http", version = "1.0.8")
+  implementation(group = "xerces", name = "xercesImpl", version = "2.9.1")
 
   testImplementation(group = "junit", name = "junit", version = "4.12")
 }
