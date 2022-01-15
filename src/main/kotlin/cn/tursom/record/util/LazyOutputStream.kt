@@ -1,19 +1,13 @@
 package cn.tursom.record.util
 
 import java.io.OutputStream
-import java.util.concurrent.atomic.AtomicBoolean
 
-class OnCloseCallbackOutputStream(
-  private val os: OutputStream,
-  private val onCloseCallback: () -> Unit,
+class LazyOutputStream(
+  provider: () -> OutputStream,
 ) : OutputStream() {
-  private val closed = AtomicBoolean()
-
+  private val os by lazy(provider)
   override fun close() {
     os.close()
-    if (closed.compareAndSet(false, true)) {
-      onCloseCallback()
-    }
   }
 
   override fun flush() {

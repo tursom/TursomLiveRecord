@@ -2,6 +2,7 @@ package cn.tursom.record
 
 import cn.tursom.core.*
 import cn.tursom.log.impl.Slf4jImpl
+import cn.tursom.record.util.LazyOutputStream
 import cn.tursom.record.util.OnCloseCallbackOutputStream
 import cn.tursom.ws.BiliWSClient
 import cn.tursom.ws.CmdEnum
@@ -14,10 +15,8 @@ import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.OutputStream
 import java.nio.ByteOrder
-import java.util.zip.GZIPOutputStream
 
 private val logger = Slf4jImpl.getLogger()
-private val roomIdList = intArrayOf(22340341, 1138, 23018529, 917818)
 
 fun setDefaultTextFormatPrinter(printer: TextFormat.Printer) {
   val defaultPrinter = TextFormat.Printer::class.java.getDeclaredField("DEFAULT")
@@ -77,41 +76,40 @@ suspend fun recordDanmu(
 
   GlobalScope.launch {
     var danmuInfo: Record.RecordMsg? = null
-    while (true) {
-      try {
-        os().use { os ->
-          while (true) {
-            if (danmuInfo == null) {
-              danmuInfo = danmuChannel.receive()
-            }
-            val bytes = danmuInfo!!.let { danmuInfo ->
-              when (danmuInfo.contentCase) {
-                Record.RecordMsg.ContentCase.DANMU -> println("${biliWSClient.userInfo.info.uname}: ${danmuInfo.danmu.danmu.userInfo.nickname}: ${danmuInfo.danmu.danmu.danmu}")
-                Record.RecordMsg.ContentCase.LIVESTATUS -> println("${biliWSClient.userInfo.info.uname}: ${
-                  when (danmuInfo.liveStatus.status) {
-                    Record.LiveStatus.LiveStatusEnum.NONE -> "未知直播状态"
-                    Record.LiveStatus.LiveStatusEnum.LIVE -> "开播"
-                    Record.LiveStatus.LiveStatusEnum.PREPARING -> "下播"
-                    Record.LiveStatus.LiveStatusEnum.UNRECOGNIZED -> "未知直播状态"
-                    null -> "未知直播状态"
-                  }
-                }")
-                Record.RecordMsg.ContentCase.GIFT -> println("${biliWSClient.userInfo.info.uname}: ${danmuInfo.gift.gift.uname}: ${danmuInfo.gift.gift.giftName} x ${danmuInfo.gift.gift.num}")
-                Record.RecordMsg.ContentCase.CONTENT_NOT_SET -> Unit
-                null -> Unit
-              }
-
-              danmuInfo.toByteArray()
-            }
-            os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
-            os.write(bytes)
-            os.flush()
-            danmuInfo = null
+    while (true) try {
+      os().use { os ->
+        while (true) {
+          if (danmuInfo == null) {
+            danmuInfo = danmuChannel.receive()
           }
+          val bytes = danmuInfo!!.let { danmuInfo ->
+            when (danmuInfo.contentCase) {
+              Record.RecordMsg.ContentCase.DANMU ->
+                println("${biliWSClient.userInfo.info.uname}: ${danmuInfo.danmu.danmu.userInfo.nickname}: ${danmuInfo.danmu.danmu.danmu}")
+              Record.RecordMsg.ContentCase.LIVESTATUS -> println("${biliWSClient.userInfo.info.uname}: ${
+                when (danmuInfo.liveStatus.status) {
+                  Record.LiveStatus.LiveStatusEnum.NONE -> "未知直播状态"
+                  Record.LiveStatus.LiveStatusEnum.LIVE -> "开播"
+                  Record.LiveStatus.LiveStatusEnum.PREPARING -> "下播"
+                  Record.LiveStatus.LiveStatusEnum.UNRECOGNIZED -> "未知直播状态"
+                  null -> "未知直播状态"
+                }
+              }")
+              Record.RecordMsg.ContentCase.GIFT ->
+                println("${biliWSClient.userInfo.info.uname}: ${danmuInfo.gift.gift.uname}: ${danmuInfo.gift.gift.giftName} x ${danmuInfo.gift.gift.num}")
+              else -> Unit
+            }
+
+            danmuInfo.toByteArray()
+          }
+          os.write(bytes.size.toByteArray(ByteOrder.BIG_ENDIAN))
+          os.write(bytes)
+          os.flush()
+          danmuInfo = null
         }
-      } catch (e: Throwable) {
-        logger.error("an exception caused on save danmu", e)
       }
+    } catch (e: Throwable) {
+      logger.error("an exception caused on save danmu", e)
     }
   }
 }
@@ -122,9 +120,9 @@ private fun startDanmuRecord(
   out: () -> OutputStream,
 ) {
   var os: OutputStream
-  os = OnCloseCallbackOutputStream(GZIPOutputStream(out()), object : () -> Unit {
+  os = OnCloseCallbackOutputStream(out(), object : () -> Unit {
     override fun invoke() {
-      os = OnCloseCallbackOutputStream(GZIPOutputStream(out()), this)
+      os = OnCloseCallbackOutputStream(out(), this)
     }
   })
   ShutdownHook.addHook {
@@ -146,7 +144,9 @@ suspend fun recordDanmu(
   out: () -> OutputStream,
 ): BiliWSClient {
   val biliWSClient = BiliWSClient(roomId)
-  startDanmuRecord(biliWSClient, out)
+  startDanmuRecord(biliWSClient) {
+    LazyOutputStream(out)
+  }
   println("connect $roomId ${biliWSClient.userInfo.info.uname}")
   biliWSClient.connect()
   return biliWSClient
