@@ -11,12 +11,9 @@ import java.io.File
 class ImRequestHandler(
   private val globalContext: GlobalContext,
 ) {
-  suspend fun listenLiveRoom(
-    listenLiveRoom: TursomSystemMsg.ListenLiveRoom,
-    msgSender: MsgSender,
-  ) {
-    val roomId = listenLiveRoom.roomId.toInt()
-    val liver = listenLiveRoom.liver
+  suspend fun TursomSystemMsg.ListenLiveRoom.listenLiveRoom(msgSender: MsgSender) {
+    val roomId = roomId.toInt()
+    val liver = liver
     val sender = msgSender.sender
     if (globalContext.dbContext.addLiveRoom(roomId, liver)) {
       globalContext.dbContext.addUserListenRoom(sender, roomId)
@@ -24,18 +21,15 @@ class ImRequestHandler(
     }
   }
 
-  suspend fun getLiveDanmuRecordList(
-    getLiveDanmuRecordList: TursomSystemMsg.GetLiveDanmuRecordList,
-    msgSender: MsgSender,
-  ) {
+  suspend fun TursomSystemMsg.GetLiveDanmuRecordList.getLiveDanmuRecordList(msgSender: MsgSender) {
     val recordList = globalContext.dbContext.listLiveRecordFileByRoomId(
-      getLiveDanmuRecordList.roomId.toInt(),
-      getLiveDanmuRecordList.skip,
-      getLiveDanmuRecordList.limit
+      roomId.toInt(),
+      skip,
+      limit
     )
     val response = TursomSystemMsg.ReturnLiveDanmuRecordList.newBuilder()
-      .setReqId(getLiveDanmuRecordList.reqId)
-      .setRoomId(getLiveDanmuRecordList.roomId)
+      .setReqId(reqId)
+      .setRoomId(roomId)
       .addAllRecordList(recordList.map {
         TursomSystemMsg.LiveDanmuRecord.newBuilder()
           .setId(it.id)
@@ -47,17 +41,14 @@ class ImRequestHandler(
     msgSender.send(response)
   }
 
-  suspend fun getLiveDanmuRecord(
-    getLiveDanmuRecord: TursomSystemMsg.GetLiveDanmuRecord,
-    msgSender: MsgSender,
-  ) {
-    val roomLiveRecord = globalContext.dbContext.getLiveRecordFileById(getLiveDanmuRecord.liveDanmuRecordId)
+  suspend fun TursomSystemMsg.GetLiveDanmuRecord.getLiveDanmuRecord(msgSender: MsgSender) {
+    val roomLiveRecord = globalContext.dbContext.getLiveRecordFileById(liveDanmuRecordId)
     val recFile = roomLiveRecord?.let {
       File(it.recFile)
     }
     val response = TursomSystemMsg.ReturnLiveDanmuRecord.newBuilder()
       .setExist(recFile?.exists() ?: false)
-      .setReqId(getLiveDanmuRecord.reqId)
+      .setReqId(reqId)
 
     if (recFile != null && recFile.exists()) {
       response.data = ByteString.readFrom(recFile.inputStream())
@@ -65,22 +56,19 @@ class ImRequestHandler(
     msgSender.send(response.build())
   }
 
-  suspend fun getServiceRequest(
-    getServiceRequest: TursomSystemMsg.GetServiceRequest,
-    msgSender: MsgSender,
-  ) {
+  suspend fun TursomSystemMsg.GetServiceRequest.getServiceRequest(msgSender: MsgSender) {
     val response = TursomSystemMsg.GetServiceResponse.newBuilder()
-      .setReqId(getServiceRequest.reqId)
+      .setReqId(reqId)
 
     val systemHandler = msgSender.client.handler.system.handlerTypeUrlSet
     val broadcastHandler = msgSender.client.handler.broadcast.handlerTypeUrlSet
 
-    if (getServiceRequest.serviceIdList.isEmpty()) {
+    if (serviceIdList.isEmpty()) {
       response.addAllSystemServiceId(systemHandler)
       response.addAllBroadServiceId(broadcastHandler)
     } else {
-      response.addAllSystemServiceId(getServiceRequest.serviceIdList.filter { it in systemHandler })
-      response.addAllBroadServiceId(getServiceRequest.serviceIdList.filter { it in broadcastHandler })
+      response.addAllSystemServiceId(serviceIdList.filter { it in systemHandler })
+      response.addAllBroadServiceId(serviceIdList.filter { it in broadcastHandler })
     }
 
     msgSender.send(response.build())
