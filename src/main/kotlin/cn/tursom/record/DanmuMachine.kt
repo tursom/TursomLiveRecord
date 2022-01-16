@@ -1,6 +1,7 @@
 package cn.tursom.record
 
 import cn.tursom.core.ThreadLocalSimpleDateFormat
+import cn.tursom.core.coroutine.GlobalScope
 import cn.tursom.core.createFolderIfNotExists
 import cn.tursom.core.gz
 import cn.tursom.core.seconds
@@ -13,6 +14,7 @@ import cn.tursom.record.util.recTime
 import cn.tursom.ws.CmdEnum
 import com.google.protobuf.TextFormat
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.slf4j.event.Level
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -93,7 +95,7 @@ suspend fun main(args: Array<String>) {
   val globalContext = GlobalContext(args)
   globalContext.imContext?.let { imContext ->
     val imClient = imContext.im
-    imClient.listenBroadcast(imContext.imConfig.channel ?: 12345)
+
     val imRequestHandler = ImRequestHandler(globalContext)
     imClient.handler.broadcast.registerHandlerObject(imRequestHandler)
     imClient.handler.system.registerHandlerObject(imRequestHandler)

@@ -5,7 +5,12 @@ import cn.tursom.core.base62
 import kotlin.random.Random
 
 class SnowflakeIdContextImpl(
-  private val snowflake: Snowflake = Snowflake(Random.nextInt()),
+  private val snowflake: () -> Snowflake,
 ) : IdContext {
-  override fun id() = snowflake.id.base62()
+  companion object {
+    val defaultSnowflake = Snowflake(Random.nextInt())
+  }
+  constructor(snowflake: Snowflake = defaultSnowflake) : this({ snowflake })
+
+  override fun id() = snowflake().id.base62()
 }

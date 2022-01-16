@@ -85,16 +85,16 @@ class DanmuRecordTest {
 
   @Test
   fun testConnect(): Unit = runBlocking {
-    val biliWSClient = BiliWSClient(8584389, onClose = {
+    val biliWSClient = BiliWSClient(367966, onClose = {
       notifyAll {
       }
     })
-    biliWSClient.addGiftListener {
-      println(it)
+    //biliWSClient.addGiftListener {
+    //  println(it)
+    //}
+    biliWSClient.addDanmuListener { danmu ->
+      println("${biliWSClient.userInfo.info.uname}: ${danmu.userInfo.nickname}: ${danmu.danmu}")
     }
-//    biliWSClient.addDanmuListener {
-//      println(it)
-//    }
 
     biliWSClient.connect()
     biliWSClient.wait {

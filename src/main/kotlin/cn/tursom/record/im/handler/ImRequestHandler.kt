@@ -34,7 +34,8 @@ class ImRequestHandler(
         TursomSystemMsg.LiveDanmuRecord.newBuilder()
           .setId(it.id)
           .setStart(it.startTime)
-          .setStart(it.endTime)
+          .setStop(it.endTime)
+          .setSize(File("rec/" + it.recFile).length())
           .build()
       })
       .build()
@@ -44,7 +45,7 @@ class ImRequestHandler(
   suspend fun TursomSystemMsg.GetLiveDanmuRecord.getLiveDanmuRecord(msgSender: MsgSender) {
     val roomLiveRecord = globalContext.dbContext.getLiveRecordFileById(liveDanmuRecordId)
     val recFile = roomLiveRecord?.let {
-      File(it.recFile)
+      File("rec/" + it.recFile)
     }
     val response = TursomSystemMsg.ReturnLiveDanmuRecord.newBuilder()
       .setExist(recFile?.exists() ?: false)

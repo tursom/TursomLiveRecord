@@ -89,7 +89,15 @@ class KtormContextImpl(
   }
 
   override fun addUserListenRoom(uid: String, roomId: Int): Boolean {
-    return database.insert(UserRoom(uid, roomId)) != 0
+    return try {
+      database.insert(UserRoom(uid, roomId)) != 0
+    } catch (e: SQLiteException) {
+      if (e.resultCode == SQLiteErrorCode.SQLITE_CONSTRAINT_PRIMARYKEY) {
+        true
+      } else {
+        throw e
+      }
+    }
   }
 
   override fun removeUserListenRoom(uid: String, roomId: Int): Boolean {
@@ -167,6 +175,9 @@ class KtormContextImpl(
   }
 
   override fun recordLiveRecordFile(roomId: Int, recFile: String, startTime: Long, endTime: Long) {
+    if (startTime < 0) return
+    @Suppress("NAME_SHADOWING")
+    val endTime = if (endTime < 0) startTime else endTime
     database.insert(RoomLiveRecord(idContext.id(), roomId, recFile, startTime, endTime))
   }
 

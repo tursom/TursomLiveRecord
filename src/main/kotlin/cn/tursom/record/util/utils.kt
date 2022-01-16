@@ -1,5 +1,6 @@
 package cn.tursom.record.util
 
+import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.core.toInt
 import cn.tursom.record.Record
 import java.io.InputStream
@@ -53,4 +54,18 @@ fun InputStream.recTime(): Pair<Long, Long> {
     }
   }
   return start to if (end < 0) start else end
+}
+
+fun ByteBuffer.loopRecord(callback: (Record.RecordMsg) -> Unit) {
+  try {
+    while (true) {
+      val size = getInt()
+      val msg = run {
+        val msgBuffer = getBytes(size)
+        Record.RecordMsg.parseFrom(msgBuffer)
+      }
+      callback(msg)
+    }
+  } catch (_: Exception) {
+  }
 }
