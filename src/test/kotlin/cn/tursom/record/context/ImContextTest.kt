@@ -85,7 +85,7 @@ class ImContextTest {
   fun testListenLiveRoom() {
     val client = globalContext.imContext!!.im
     client.sendExtMsg("21tsfd1rQ5N", TursomSystemMsg.ListenLiveRoom.newBuilder()
-      .setRoomId(23594422)
-      .setLiver("Shizukou"))
+      .setRoomId(801580)
+      .setLiver("涵涵"))
   }
 }

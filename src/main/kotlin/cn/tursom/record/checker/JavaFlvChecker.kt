@@ -31,7 +31,7 @@ class JavaFlvChecker : FlvChecker {
         false
       } else {
         buf.get() == 0x00.toByte() && buf.get() == 0x00.toByte() &&
-            buf.get() == 0x00.toByte() && buf.get() == 0x09.toByte()
+          buf.get() == 0x00.toByte() && buf.get() == 0x09.toByte()
       }
     }
   }
@@ -72,12 +72,12 @@ class JavaFlvChecker : FlvChecker {
       recvData.writeTo(dataBuf)
     }
 
-    if (!isValidFlvHeader(dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE))) {
+    if (!isValidFlvHeader(dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE, 0, FLV_HEADER_SIZE))) {
       throw InvalidFlvHeaderException()
     }
 
-    dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE).writeTo(writeBuf)
-    resultChannel.send(writeBuf.slice(0, FLV_HEADER_SIZE, writePosition = FLV_HEADER_SIZE))
+    dataBuf.slice(dataBuf.readPosition, FLV_HEADER_SIZE, 0, FLV_HEADER_SIZE).writeTo(writeBuf)
+    resultChannel.send(writeBuf.slice(0, FLV_HEADER_SIZE, 0, FLV_HEADER_SIZE))
     dataBuf.readPosition += FLV_HEADER_SIZE
     writeBuf.readPosition += FLV_HEADER_SIZE
     filePosition += FLV_HEADER_SIZE
@@ -168,11 +168,7 @@ class JavaFlvChecker : FlvChecker {
     }
     tag.writeTag(writeBuf)
     tag.body!!.writeTo(writeBuf)
-    val provideBuf = writeBuf.slice(
-      writeBuf.readPosition,
-      tagSize,
-      writePosition = tagSize
-    )
+    val provideBuf = writeBuf.slice(writeBuf.readPosition, tagSize, 0, tagSize)
     if (resultFrameCache != null) {
       resultChannel.send(resultFrameCache!!)
     }

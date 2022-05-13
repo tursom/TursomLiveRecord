@@ -96,6 +96,10 @@ suspend fun main(args: Array<String>) {
   globalContext.imContext?.let { imContext ->
     val imClient = imContext.im
 
+    imClient.handler.onMsgRead = { msg ->
+      println("read im msg: $msg")
+    }
+
     val imRequestHandler = ImRequestHandler(globalContext)
     imClient.handler.broadcast.registerHandlerObject(imRequestHandler)
     imClient.handler.system.registerHandlerObject(imRequestHandler)
