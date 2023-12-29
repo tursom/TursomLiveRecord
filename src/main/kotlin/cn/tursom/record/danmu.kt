@@ -1,6 +1,6 @@
 package cn.tursom.record
 
-import cn.tursom.core.*
+import cn.tursom.core.util.*
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.record.util.LazyOutputStream
 import cn.tursom.record.util.OnCloseCallbackOutputStream
@@ -125,7 +125,7 @@ private fun startDanmuRecord(
       os = OnCloseCallbackOutputStream(out(), this)
     }
   })
-  ShutdownHook.addHook {
+  ShutdownHook.addShutdownHook {
     os.flush()
     os.close()
   }

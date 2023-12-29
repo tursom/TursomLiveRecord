@@ -2,10 +2,10 @@
 
 package cn.tursom.record
 
-import cn.tursom.core.ThreadLocalSimpleDateFormat
+import cn.tursom.core.util.ThreadLocalSimpleDateFormat
 import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.core.coroutine.bufferTicker
-import cn.tursom.core.seconds
+import cn.tursom.core.util.seconds
 import cn.tursom.log.impl.Slf4jImpl
 import cn.tursom.record.provider.BilibiliLiveProvider
 import cn.tursom.record.saver.FileLiveSaver
@@ -83,7 +83,7 @@ fun main() = runBlocking {
                 try {
                   startRecordOnce(roomId, title, onException!!)
                   return@reconnect
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                 }
               }
             }

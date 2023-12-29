@@ -1,7 +1,7 @@
 package cn.tursom.record.context
 
-import cn.tursom.core.Snowflake
-import cn.tursom.core.base62
+import cn.tursom.core.util.Snowflake
+import cn.tursom.core.util.base62
 import kotlin.random.Random
 
 class SnowflakeIdContextImpl(

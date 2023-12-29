@@ -1,7 +1,7 @@
 package cn.tursom.record.saver
 
 import cn.tursom.core.AsyncFile
-import cn.tursom.core.ShutdownHook
+import cn.tursom.core.util.ShutdownHook
 import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.log.impl.Slf4jImpl
 import kotlinx.coroutines.*
@@ -24,7 +24,7 @@ class FileLiveSaver(
   private var savedSize: Long = 0
 
   @Suppress("unused")
-  private val hook = ShutdownHook.addHook(true) {
+  private val hook = ShutdownHook.addSoftShutdownHook {
     close()
   }
 

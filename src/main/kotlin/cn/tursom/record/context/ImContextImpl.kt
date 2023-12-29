@@ -2,7 +2,7 @@ package cn.tursom.record.context
 
 import cn.tursom.core.coroutine.GlobalScope
 import cn.tursom.core.coroutine.SingletonCoroutine
-import cn.tursom.core.seconds
+import cn.tursom.core.util.seconds
 import cn.tursom.im.ImWebSocketClient
 import cn.tursom.im.ImWebSocketClientCoroutineContext
 import cn.tursom.im.connectAndWait

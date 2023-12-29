@@ -4,11 +4,11 @@ import cn.tursom.gradle.*
 buildscript {
   repositories {
     maven {
-      url = uri("https://nvm.tursom.cn/repository/maven-public/")
+      url = uri("https://jmp.mvn.tursom.cn:20080/repository/maven-public/")
     }
   }
   dependencies {
-    classpath("cn.tursom:ts-gradle:1.0-SNAPSHOT") { isChanging = true }
+    classpath("cn.tursom:ts-gradle-repos:1.1-SNAPSHOT") { isChanging = true }
   }
   configurations {
     all {
@@ -18,23 +18,18 @@ buildscript {
   }
 }
 
-apply(plugin = "ts-gradle")
+apply(plugin = "ts-gradle-repos")
 
 plugins {
-  kotlin("jvm") version "1.6.10"
-  id("com.google.protobuf") version "0.8.18"
+  kotlin("jvm") version "1.9.22"
+  id("com.google.protobuf") version "0.9.4"
   application
 }
 
 group = "cn.tursom"
 version = "1.0"
 
-repositories {
-  maven {
-    url = uri("https://nvm.tursom.cn/repository/maven-public/")
-  }
-  mavenCentral()
-}
+useTursomRepositories()
 
 configurations {
   compileOnly {
@@ -48,7 +43,7 @@ configurations {
 
 dependencies {
   implementation(kotlin("stdlib"))
-  val tursomServerVersion = "1.0-SNAPSHOT"
+  val tursomServerVersion = "1.1-SNAPSHOT"
   `ts-async-http`
   `ts-pool`
   `ts-socket`
@@ -61,7 +56,7 @@ dependencies {
   implementation(group = "cn.tursom", name = "BiliWS", version = tursomServerVersion)
 
   implementation(group = "org.ktorm", name = "ktorm-support-sqlite", version = "3.4.1")
-  implementation(group = "org.xerial", name = "sqlite-jdbc", version = "3.36.0.3")
+  implementation(group = "org.xerial", name = "sqlite-jdbc", version = "3.41.2.2")
   implementation(group = "com.squareup.okhttp3", name = "okhttp", version = "4.9.3")
   implementation(group = "io.netty", name = "netty-tcnative-boringssl-static", version = "2.0.51.Final")
   //implementation(group = "io.netty", name = "netty-all", version = "4.1.65.Final")
@@ -72,7 +67,7 @@ dependencies {
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-  kotlinOptions.jvmTarget = "1.8"
+  kotlinOptions.jvmTarget = "21"
   kotlinOptions.freeCompilerArgs += "-Xopt-in=kotlin.RequiresOptIn"
   //kotlinOptions.useIR = true
 }
@@ -81,7 +76,7 @@ protobuf {
   protoc {
     artifact = "com.google.protobuf:protoc:3.20.1"
   }
-  generatedFilesBaseDir = "$projectDir/src"
+  //generatedFilesBaseDir = "$projectDir/src"
   //plugins {
   //  id("grpc") {
   //    artifact = "io.grpc:protoc-gen-grpc-java:1.38.0"

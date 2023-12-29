@@ -1,8 +1,8 @@
 package cn.tursom.record
 
-import cn.tursom.core.TextColor
-import cn.tursom.core.ThreadLocalSimpleDateFormat
-import cn.tursom.core.toInt
+import cn.tursom.core.util.TextColor
+import cn.tursom.core.util.ThreadLocalSimpleDateFormat
+import cn.tursom.core.util.toInt
 import cn.tursom.danmu.Danmu
 import com.google.protobuf.TextFormat
 import java.io.File
@@ -51,9 +51,14 @@ fun main() {
       Record.RecordMsg.ContentCase.DANMU -> {
         printDanmu(message.danmu.danmu, line)
       }
-      Record.RecordMsg.ContentCase.LIVESTATUS -> Unit
-      Record.RecordMsg.ContentCase.CONTENT_NOT_SET -> Unit
-      null -> Unit
+
+      Record.RecordMsg.ContentCase.LIVESTATUS,
+      Record.RecordMsg.ContentCase.CONTENT_NOT_SET,
+      Record.RecordMsg.ContentCase.GIFT,
+      Record.RecordMsg.ContentCase.UNKNOWNCMD,
+      Record.RecordMsg.ContentCase.METADATA,
+      null,
+      -> Unit
     }
     // println(inputStream.available())
   }

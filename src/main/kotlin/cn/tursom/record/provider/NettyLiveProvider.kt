@@ -1,6 +1,6 @@
 package cn.tursom.record.provider
 
-import cn.tursom.core.ShutdownHook
+import cn.tursom.core.util.ShutdownHook
 import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.core.buffer.impl.NettyByteBuffer
 import cn.tursom.core.pool.HeapMemoryPool
@@ -120,7 +120,7 @@ open class NettyLiveProvider(
   var closed: Boolean = false
     private set
 
-  private val hook = ShutdownHook.addHook(true) {
+  private val hook = ShutdownHook.addSoftShutdownHook {
     close()
   }
 

@@ -1,7 +1,7 @@
 package cn.tursom.record.util
 
 import cn.tursom.core.buffer.ByteBuffer
-import cn.tursom.core.toInt
+import cn.tursom.core.util.toInt
 import cn.tursom.record.Record
 import java.io.InputStream
 import java.nio.ByteOrder

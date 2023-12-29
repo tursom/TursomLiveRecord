@@ -1,10 +1,10 @@
 package cn.tursom.record
 
-import cn.tursom.core.ThreadLocalSimpleDateFormat
-import cn.tursom.core.coroutine.GlobalScope
-import cn.tursom.core.createFolderIfNotExists
-import cn.tursom.core.gz
-import cn.tursom.core.seconds
+import cn.tursom.core.util.ThreadLocalSimpleDateFormat
+import cn.tursom.core.util.createFolderIfNotExists
+import cn.tursom.core.util.gz
+import cn.tursom.core.util.seconds
+import cn.tursom.im.registerHandlerObject
 import cn.tursom.log.setLogLevel
 import cn.tursom.mail.GroupEmailData
 import cn.tursom.record.context.GlobalContext
@@ -14,7 +14,6 @@ import cn.tursom.record.util.recTime
 import cn.tursom.ws.CmdEnum
 import com.google.protobuf.TextFormat
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.slf4j.event.Level
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,19 +22,23 @@ import javax.activation.FileDataSource
 private val dateFormat = ThreadLocalSimpleDateFormat("YYYY-MM-dd HH-mm")
 
 fun sendLiveStartMail(globalContext: GlobalContext, baseEmailData: GroupEmailData, liver: String, roomId: Int) {
-  globalContext.mailContext.sendMailBlocking(baseEmailData.copy(
-    subject = "${liver}开锅了！",
-    to = globalContext.dbContext.listListenRoomUsersMail(roomId),
-    text = "https://live.bilibili.com/$roomId",
-  ))
+  globalContext.mailContext.sendMailBlocking(
+    baseEmailData.copy(
+      subject = "${liver}开锅了！",
+      to = globalContext.dbContext.listListenRoomUsersMail(roomId),
+      text = "https://live.bilibili.com/$roomId",
+    )
+  )
 }
 
 fun sendLiveStopMail(globalContext: GlobalContext, baseEmailData: GroupEmailData, liver: String, roomId: Int) {
-  globalContext.mailContext.sendMailBlocking(baseEmailData.copy(
-    subject = "${liver}下锅了！",
-    to = globalContext.dbContext.listListenRoomUsersMail(roomId),
-    text = "https://live.bilibili.com/$roomId",
-  ))
+  globalContext.mailContext.sendMailBlocking(
+    baseEmailData.copy(
+      subject = "${liver}下锅了！",
+      to = globalContext.dbContext.listListenRoomUsersMail(roomId),
+      text = "https://live.bilibili.com/$roomId",
+    )
+  )
 }
 
 suspend fun listenRoom(globalContext: GlobalContext, roomId: Int, liver: String) {
@@ -61,12 +64,14 @@ suspend fun listenRoom(globalContext: GlobalContext, roomId: Int, liver: String)
       globalContext.dbContext.setRoomRecFile(roomId, "rec/$liver-${dateFormat.now()}.rec")
       globalContext.dbContext.recordLiveRecordFile(roomId, outFile.name, start, end)
       val gzOutFile = outFile.gz()
-      globalContext.mailContext.sendMailBlocking(baseEmailData.copy(
-        subject = "$liver 直播记录",
-        text = "$liver ${dateFormat.now()} 直播记录",
-        to = globalContext.dbContext.listListenRoomUsersMail(roomId),
-        attachment = listOf(FileDataSource(gzOutFile))
-      )) {
+      globalContext.mailContext.sendMailBlocking(
+        baseEmailData.copy(
+          subject = "$liver 直播记录",
+          text = "$liver ${dateFormat.now()} 直播记录",
+          to = globalContext.dbContext.listListenRoomUsersMail(roomId),
+          attachment = listOf(FileDataSource(gzOutFile))
+        )
+      ) {
         gzOutFile.delete()
       }
     }

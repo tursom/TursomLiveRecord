@@ -1,7 +1,7 @@
 package cn.tursom.record.context
 
 import cn.tursom.core.coroutine.GlobalScope
-import cn.tursom.core.uncheckedCast
+import cn.tursom.core.util.uncheckedCast
 import cn.tursom.log.impl.Slf4jImpl
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job

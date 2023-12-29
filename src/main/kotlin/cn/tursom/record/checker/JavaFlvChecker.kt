@@ -5,7 +5,7 @@ import cn.tursom.core.buffer.getIntWithSize
 import cn.tursom.core.buffer.impl.HeapByteBuffer
 import cn.tursom.core.buffer.putIntWithSize
 import cn.tursom.core.pool.HeapMemoryPool
-import cn.tursom.core.seconds
+import cn.tursom.core.util.seconds
 import cn.tursom.log.impl.Slf4jImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -124,6 +124,7 @@ class JavaFlvChecker : FlvChecker {
         tag.timestamp += audioTimestampFix
         audioTimestamp = tag.timestamp
       }
+
       TagType.VIDEO -> {
         val fixedTimestamp = tag.timestamp + videoTimestampFix
         if (fixedTimestamp < videoTimestamp || fixedTimestamp - videoTimestamp > 1.seconds().toMillis()) {
@@ -132,6 +133,7 @@ class JavaFlvChecker : FlvChecker {
         tag.timestamp += videoTimestampFix
         videoTimestamp = tag.timestamp
       }
+
       TagType.SCRIPT -> {
       }
     }

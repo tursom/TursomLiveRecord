@@ -1,6 +1,6 @@
 package cn.tursom.record.context
 
-import cn.tursom.core.ThreadLocalSimpleDateFormat
+import cn.tursom.core.util.ThreadLocalSimpleDateFormat
 import cn.tursom.record.recordDanmu
 import cn.tursom.record.sendLiveStartMail
 import cn.tursom.record.sendLiveStopMail

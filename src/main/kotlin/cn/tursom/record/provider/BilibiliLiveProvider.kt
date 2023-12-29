@@ -2,7 +2,7 @@ package cn.tursom.record.provider
 
 import cn.tursom.core.buffer.ByteBuffer
 import cn.tursom.core.buffer.impl.PooledByteBuffer
-import cn.tursom.core.fromJson
+import cn.tursom.core.util.fromJson
 import cn.tursom.core.pool.HeapMemoryPool
 import cn.tursom.core.pool.MemoryPool
 import cn.tursom.http.client.AsyncHttpRequest
